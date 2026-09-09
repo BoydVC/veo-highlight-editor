@@ -879,7 +879,7 @@ function renderBuilder() {
 }
 
 // ---------- intro / outro cards ---------------------------------------------------
-// Styled after the Charlotte_Boyd_19_Highlights examples: navy base, gold letter-
+// Styled after the Charlotte_Boyd_19_Highlights examples: dark base, magenta accent bar, gold letter-
 // spaced kicker, huge silver title, photo blended through a gradient (left panel
 // for 16:9, bottom panel for 9:16).
 const cardImgs = { intro: null, outro: null }; // Image objects, not persisted
@@ -929,7 +929,8 @@ function renderCard(W, H, cfg, img) {
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const x = c.getContext('2d');
-  const NAVY = '13,27,51', GOLD = '#f2c84b', SILVER = '#e9edf5';
+  // app palette: dark base + magenta accent + gold kicker (matches the badge and the UI)
+  const NAVY = '16,18,22', GOLD = '#ffd400', ACCENT = '#d92a6c', SILVER = '#e8ebf0';
   x.fillStyle = `rgb(${NAVY})`; x.fillRect(0, 0, W, H);
   if (img) { // cover-fit
     const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
@@ -983,7 +984,7 @@ function renderCard(W, H, cfg, img) {
     y += titlePx0 * 1.12;
   }
   if (cfg.sub) {
-    x.fillStyle = GOLD;
+    x.fillStyle = ACCENT;
     x.fillRect(left, y + base * 0.018, base * 0.09, Math.max(2, base * 0.006)); // accent bar
     y += base * 0.05;
     fit(cfg.sub, 800, subPx);
@@ -994,7 +995,7 @@ function renderCard(W, H, cfg, img) {
   if (cfg.sub2) {
     fit(cfg.sub2.toUpperCase(), 700, sub2Px);
     x.letterSpacing = `${Math.round(base * 0.004)}px`;
-    x.fillStyle = 'rgba(233,237,245,0.55)';
+    x.fillStyle = 'rgba(232,235,240,0.55)';
     x.fillText(cfg.sub2.toUpperCase(), left, y);
     x.letterSpacing = '0px';
   }

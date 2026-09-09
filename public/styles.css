@@ -252,7 +252,7 @@ dialog menu { width: 100%; display: flex; justify-content: flex-end; gap: 8px; m
 .cardCfg legend label { flex-direction: row; align-items: center; gap: 6px; cursor: pointer; }
 .cardCfg .cardBody { display: none; gap: 8px; }
 .cardCfg.on .cardBody { display: flex; }
-.cardPrev { width: 150px; flex: none; align-self: flex-start; border-radius: 6px; background: #0d1b33; }
+.cardPrev { width: 150px; flex: none; align-self: flex-start; border-radius: 6px; background: var(--bg); }
 .cardFields { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
 .cardFields input { width: 100%; box-sizing: border-box; }
 .cardFields .secsLbl { flex-direction: row; align-items: center; gap: 6px; }

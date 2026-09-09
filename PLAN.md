@@ -146,7 +146,8 @@ theme (near-black canvas, layered grey surfaces, single cool-blue accent) driven
 the theme. Transport is a centered icon cluster with inline SVGs, hotkeys appear as `<kbd>` chips,
 clip cards show a frame grab at the in-point (grabbed on a hidden `<video>`, kept in memory for the
 session, keyed by id+inMs so a nudged in-point refreshes it), toasts sit bottom-right, focus rings
-and `prefers-reduced-motion` are honored.
+and `prefers-reduced-motion` are honored. Compilation intro/outro cards use the same palette
+(dark base, magenta accent bar, gold kicker) instead of the earlier navy.
 
 ## Future ideas (not in v1)
 - ~~Optical-flow / detector assist~~ — measured Sept 2026: the spline at 15–30 frames already matches dense clicks; a detector snap was worse. Only a "badge on grass" drift alarm would still make sense.
