@@ -1,28 +1,29 @@
 /* Charlotte Clips — neutral-pro dark theme.
    Tokens → base → layout → transport → timeline → labels → clip cards → dialogs → toast */
 :root {
-  --bg: #0b0c10;
-  --surface-1: #12141a;
-  --surface-2: #181b22;
-  --surface-3: #1f232c;
-  --border: #262b35;
-  --border-strong: #353c4a;
-  --text: #e7eaf0;
-  --text-2: #a6aebc;
-  --text-3: #6e7687;
-  --accent: #4c8dff;
-  --accent-hover: #6ea1ff;
-  --accent-soft: rgba(76, 141, 255, .16);
-  --accent-a22: rgba(76, 141, 255, .22);
-  --accent-a55: rgba(76, 141, 255, .55);
-  --in: #34c987;
-  --out: #ff5d5d;
-  --warn: #f5b942;
-  --playhead: #ffffff;
-  --tl-bg: #12141a;
-  --tl-tick: #262b35;
-  --tl-text: #6e7687;
-  --anchor: #f5b942;
+  --bg: #101216;
+  --surface-1: #181b22;
+  --surface-2: #1c2029;
+  --surface-3: #1f242e;
+  --border: #2c3340;
+  --border-strong: #3a4353;
+  --text: #e8ebf0;
+  --text-2: #a3abb9;
+  --text-3: #8b93a3;
+  --accent: #d92a6c;
+  --accent-hover: #ef3f80;
+  --accent-soft: rgba(217, 42, 108, .14);
+  --accent-a22: rgba(217, 42, 108, .22);
+  --accent-a55: rgba(217, 42, 108, .55);
+  --gold: #ffd400;
+  --in: #2fbf71;
+  --out: #ef5350;
+  --warn: #ffd400;
+  --playhead: #ffd400;
+  --tl-bg: #181b22;
+  --tl-tick: #2c3340;
+  --tl-text: #8b93a3;
+  --anchor: #ffd400;
   --radius: 8px;
   --radius-lg: 12px;
   --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -49,7 +50,7 @@ button, select, input {
   padding: 6px 10px; font: inherit; cursor: pointer; white-space: nowrap;
   transition: background var(--t), border-color var(--t), color var(--t), transform var(--t);
 }
-button:hover { background: #262b36; border-color: var(--border-strong); }
+button:hover { background: #262c38; border-color: var(--border-strong); }
 button:active { transform: translateY(1px); }
 button.accent { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 button.accent:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
@@ -65,7 +66,7 @@ input[type=range] { padding: 0; background: transparent; border: 0; }
 input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
 kbd {
   display: inline-block; min-width: 16px; padding: 0 5px; line-height: 16px;
-  font: 600 10.5px/16px var(--mono); color: var(--text-2); text-align: center;
+  font: 600 10.5px/16px var(--mono); color: var(--gold); text-align: center;
   background: var(--surface-1); border: 1px solid var(--border-strong); border-bottom-width: 2px;
   border-radius: 4px; vertical-align: middle;
 }
@@ -84,7 +85,7 @@ button.accent kbd { color: #fff; background: rgba(255,255,255,.14); border-color
 .brand { display: flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; margin-right: 6px; }
 .brand .mark {
   width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--accent), #2f5fd1); font-size: 13px;
+  background: linear-gradient(135deg, var(--accent), #8e1a48); font-size: 13px;
 }
 #videoSelect { max-width: 440px; min-width: 240px; text-overflow: ellipsis; }
 .spacer { flex: 1; }
@@ -131,7 +132,7 @@ main { flex: 1; display: flex; min-height: 0; }
 #transport { display: flex; align-items: center; gap: 10px; padding: 10px 0 6px; }
 #transport .tgroup { display: flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; }
 #transport .tgroup.center { flex: 1; justify-content: center; }
-.timecode { font: 600 20px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--text); letter-spacing: .01em; }
+.timecode { font: 600 20px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--gold); letter-spacing: .01em; }
 .tc-dur { font: 12px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--text-3); }
 #playBtn {
   width: 44px; height: 44px; border-radius: 50%; padding: 0; margin: 0 6px;
@@ -171,7 +172,7 @@ main { flex: 1; display: flex; min-height: 0; }
 #cheats summary:hover { color: var(--text-2); }
 .cheatgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 16px; padding: 8px 4px; color: var(--text-2); }
 .cheatgrid b {
-  display: inline-block; min-width: 16px; padding: 0 5px; font: 600 10.5px/16px var(--mono); color: var(--text-2);
+  display: inline-block; min-width: 16px; padding: 0 5px; font: 600 10.5px/16px var(--mono); color: var(--gold);
   background: var(--surface-1); border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; text-align: center;
 }
 
