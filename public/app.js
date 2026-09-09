@@ -109,6 +109,7 @@ async function loadVideo(encPath) {
   video.src = '/video?path=' + encodeURIComponent(p);
   video.load();
   restoreSpeed();
+  resetThumbs();
 
   const proj = await fetch('/api/project?video=' + encodeURIComponent(p)).then(r => r.json());
   state.clips = proj.clips || [];
@@ -142,8 +143,8 @@ function renderLoop() {
 }
 requestAnimationFrame(renderLoop);
 
-video.addEventListener('play', () => { $('playBtn').textContent = '⏸'; renderLoop(); });
-video.addEventListener('pause', () => { $('playBtn').textContent = '▶'; });
+video.addEventListener('play', () => { $('playBtn').classList.add('playing'); renderLoop(); });
+video.addEventListener('pause', () => { $('playBtn').classList.remove('playing'); });
 
 // ---------- overlay preview -----------------------------------------------------
 function drawOverlay() {
@@ -253,6 +254,13 @@ wrap.addEventListener('dblclick', () => {
 });
 
 // ---------- timeline -------------------------------------------------------------
+// palette comes from the CSS tokens in styles.css so the canvas matches the theme
+const TL = (() => {
+  const cs = getComputedStyle(document.documentElement);
+  const v = n => cs.getPropertyValue(n).trim();
+  return { bg: v('--tl-bg'), tick: v('--tl-tick'), text: v('--tl-text'), clip: v('--accent-a22'),
+           clipSel: v('--accent-a55'), anchor: v('--anchor'), in: v('--in'), out: v('--out'), playhead: v('--playhead') };
+})();
 function drawTimeline() {
   const dpr = window.devicePixelRatio || 1;
   const w = timeline.clientWidth, h = timeline.clientHeight;
@@ -263,7 +271,7 @@ function drawTimeline() {
   const ctx = timeline.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#181b22'; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = TL.bg; ctx.fillRect(0, 0, w, h);
   if (!state.duration) return;
 
   const { start, end } = state.view;
@@ -274,11 +282,11 @@ function drawTimeline() {
   const target = span / (w / 90);
   const steps = [0.033, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600, 1200];
   const step = steps.find(s => s >= target) || 1800;
-  ctx.fillStyle = '#5a637500'; ctx.strokeStyle = '#2c3340'; ctx.font = '10px Consolas, monospace';
+  ctx.strokeStyle = TL.tick; ctx.font = '10px "JetBrains Mono", "Cascadia Code", Consolas, monospace';
   for (let t = Math.ceil(start / step) * step; t <= end; t += step) {
     const x = xOf(t);
-    ctx.strokeStyle = '#2c3340'; ctx.beginPath(); ctx.moveTo(x, h - 16); ctx.lineTo(x, h); ctx.stroke();
-    ctx.fillStyle = '#8b93a3';
+    ctx.strokeStyle = TL.tick; ctx.beginPath(); ctx.moveTo(x, h - 16); ctx.lineTo(x, h); ctx.stroke();
+    ctx.fillStyle = TL.text;
     ctx.fillText(fmtTime(t, step < 1), x + 3, h - 4);
   }
 
@@ -287,10 +295,10 @@ function drawTimeline() {
     const x1 = xOf(c.inMs / 1000), x2 = xOf(c.outMs / 1000);
     if (x2 < 0 || x1 > w) continue;
     const sel = c.id === state.selectedId;
-    ctx.fillStyle = sel ? 'rgba(217,42,108,.55)' : 'rgba(217,42,108,.22)';
+    ctx.fillStyle = sel ? TL.clipSel : TL.clip;
     ctx.fillRect(x1, 6, Math.max(2, x2 - x1), h - 28);
     if (sel && c.anchors) {
-      ctx.fillStyle = '#ffd400';
+      ctx.fillStyle = TL.anchor;
       for (const a of c.anchors) {
         const ax = xOf(a.t / 1000);
         ctx.fillRect(ax - 1, 8, 2, 6);
@@ -299,12 +307,12 @@ function drawTimeline() {
   }
 
   // pending in/out marks
-  if (state.inMs != null) { ctx.strokeStyle = '#2fbf71'; ctx.lineWidth = 2; const x = xOf(state.inMs / 1000); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-  if (state.outMs != null) { ctx.strokeStyle = '#ef5350'; ctx.lineWidth = 2; const x = xOf(state.outMs / 1000); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  if (state.inMs != null) { ctx.strokeStyle = TL.in; ctx.lineWidth = 2; const x = xOf(state.inMs / 1000); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  if (state.outMs != null) { ctx.strokeStyle = TL.out; ctx.lineWidth = 2; const x = xOf(state.outMs / 1000); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
 
   // playhead
   const px = xOf(video.currentTime);
-  ctx.strokeStyle = '#ffd400'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = TL.playhead; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, h); ctx.stroke();
 
   // keep playhead visible while playing
@@ -421,6 +429,48 @@ function setOut() {
   toast('Out ⇥ ' + fmtTime(state.outMs / 1000)); drawTimeline();
 }
 
+// ---------- clip thumbnails ------------------------------------------------------
+// One frame grabbed at each clip's in-point on a hidden <video>, kept in memory for the
+// session (nothing is persisted). Keyed by id + inMs so a nudged in-point refreshes it.
+const thumbs = new Map();
+const thumbKey = c => c.id + ':' + c.inMs;
+const thumbVideo = document.createElement('video');
+thumbVideo.muted = true; thumbVideo.preload = 'auto';
+let thumbQueue = [], thumbBusy = false;
+const once = (el, ev, ms = 8000) => new Promise((resolve, reject) => {
+  const t = setTimeout(() => { el.removeEventListener(ev, h); reject(new Error(ev + ' timeout')); }, ms);
+  const h = () => { clearTimeout(t); el.removeEventListener(ev, h); resolve(); };
+  el.addEventListener(ev, h);
+});
+function resetThumbs() {
+  thumbs.clear(); thumbQueue = [];
+  thumbVideo.removeAttribute('src'); thumbVideo.dataset.src = ''; thumbVideo.load();
+}
+function requestThumb(c) {
+  if (!state.videoPath || thumbs.has(thumbKey(c)) || thumbQueue.includes(c)) return;
+  thumbQueue.push(c); pumpThumbs();
+}
+async function pumpThumbs() {
+  if (thumbBusy || !thumbQueue.length) return;
+  thumbBusy = true;
+  const c = thumbQueue.shift();
+  try {
+    if (thumbVideo.dataset.src !== state.videoPath) {
+      thumbVideo.src = video.src; thumbVideo.dataset.src = state.videoPath;
+      await once(thumbVideo, 'loadedmetadata');
+    }
+    thumbVideo.currentTime = c.inMs / 1000 + 0.04;
+    await once(thumbVideo, 'seeked');
+    const cv = document.createElement('canvas'); cv.width = 192; cv.height = 108;
+    cv.getContext('2d').drawImage(thumbVideo, 0, 0, cv.width, cv.height);
+    const url = cv.toDataURL('image/jpeg', 0.72);
+    thumbs.set(thumbKey(c), url);
+    const img = document.querySelector(`.clip[data-id="${c.id}"] .thumb img`);
+    if (img) img.src = url;
+  } catch { /* leave the placeholder; nothing else depends on it */ }
+  finally { thumbBusy = false; pumpThumbs(); }
+}
+
 // ---------- clips ----------------------------------------------------------------
 function autoName(clip, idx) {
   const n = String(idx + 1).padStart(2, '0');
@@ -482,24 +532,29 @@ function renderClips() {
     const div = document.createElement('div');
     div.className = 'clip' + (c.id === state.selectedId ? ' selected' : '');
     const dur = ((c.outMs - c.inMs) / 1000).toFixed(2);
+    div.dataset.id = c.id;
+    const th = thumbs.get(thumbKey(c));
     div.innerHTML = `
-      <div class="name" title="double-click to rename">${escapeHtml(c.name)}</div>
-      <div class="sub">
-        <span>${fmtTime(c.inMs / 1000)} → ${fmtTime(c.outMs / 1000)}</span>
-        <span>${dur}s</span>
-        ${c.label ? `<span class="badge-label">${escapeHtml(c.label)}</span>` : ''}
-        ${c.anchors && c.anchors.length ? `<span class="track-ok">⊙ ${c.anchors.length} anchors</span>` : ''}
+      <div class="thumb"><img alt=""${th ? ` src="${th}"` : ''}><span class="dur">${dur}s</span></div>
+      <div class="body">
+        <div class="name" title="double-click to rename">${escapeHtml(c.name)}</div>
+        <div class="sub"><span>${fmtTime(c.inMs / 1000)} → ${fmtTime(c.outMs / 1000)}</span></div>
+        <div class="chips">
+          ${c.label ? `<span class="badge-label">${escapeHtml(c.label)}</span>` : ''}
+          ${c.anchors && c.anchors.length ? `<span class="track-ok">${c.anchors.length} anchors</span>` : '<span class="sub">not tracked</span>'}
+        </div>
       </div>
       <div class="actions">
-        <button data-act="up" title="move up in export order (Alt+↑)">▲</button>
-        <button data-act="dn" title="move down in export order (Alt+↓)">▼</button>
-        <button data-act="go">⤓ Go</button>
-        <button data-act="play">▶ Review</button>
-        <button data-act="track">⊙ Track</button>
-        <button data-act="export">⇪ Export</button>
-        <button data-act="del">✕</button>
+          <button data-act="up" title="Move up in export order (Alt+↑)">▲</button>
+          <button data-act="dn" title="Move down in export order (Alt+↓)">▼</button>
+          <button data-act="go" title="Jump to the clip start">Go</button>
+          <button data-act="play" title="Play the clip with the overlay preview">Review</button>
+          <button data-act="track" title="Track her through this clip (T)">Track</button>
+          <button data-act="export" title="Export this clip (E)">Export</button>
+          <button data-act="del" title="Delete clip">✕</button>
       </div>
-      ${c.status ? `<div class="status ${c.statusKind || ''}">${escapeHtml(c.status)}</div>` : ''}`;
+      ${c.status ? `<div class="status ${c.statusKind || ''}" title="${escapeHtml(c.status)}">${escapeHtml(c.status)}</div>` : ''}`;
+    if (!th) requestThumb(c);
     div.onclick = e => {
       if (e.target.dataset.act) return;
       state.selectedId = c.id; renderClips(); drawTimeline();
@@ -548,7 +603,7 @@ function renderLabelBar() {
   bar.innerHTML = '';
   settings.labels.slice(0, 9).forEach((lbl, i) => {
     const b = document.createElement('button');
-    b.innerHTML = `<span class="k">${i + 1}</span>${escapeHtml(lbl)}`;
+    b.innerHTML = `<kbd>${i + 1}</kbd>${escapeHtml(lbl)}`;
     b.onclick = () => assignLabel(i);
     bar.appendChild(b);
   });

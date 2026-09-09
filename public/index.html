@@ -9,18 +9,20 @@
 </head>
 <body>
 <header id="topbar">
-  <div class="brand">🥍 <strong>Charlotte Clips</strong></div>
+  <div class="brand"><span class="mark">🥍</span><strong>Charlotte Clips</strong></div>
   <select id="videoSelect" title="Choose a game file from the games/ folder"></select>
-  <button id="refreshVideos" title="Rescan games folder">⟳</button>
+  <button id="refreshVideos" class="icon-btn" title="Rescan games folder">
+    <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+  </button>
   <span id="videoMeta" class="meta"></span>
   <span class="spacer"></span>
   <select id="exportFormat" title="Export format — 16:9 for YouTube, 9:16 follows the tracked player for Reels/Shorts/TikTok">
     <option value="wide">16:9 · YouTube</option>
     <option value="vertical">9:16 · Reels</option>
   </select>
-  <button id="settingsBtn">⚙ Badge &amp; Settings</button>
+  <button id="settingsBtn">Badge &amp; Settings</button>
   <button id="exportAllBtn" class="accent">Export All Clips</button>
-  <button id="builderBtn">🎞 Compilation Builder</button>
+  <button id="builderBtn">Compilation Builder</button>
 </header>
 
 <main>
@@ -38,30 +40,43 @@
           <option value="30">+30 frames (~1s)</option>
         </select>
       </div>
-      <div id="dropHint">Pick a game from the top bar — or drop video files into the <code>games/</code> folder and hit ⟳</div>
+      <div id="dropHint">
+        <span class="big">🎬</span>
+        <span>Pick a game from the top bar</span>
+        <span class="meta">or drop video files into <code>games/</code> and hit the refresh button</span>
+      </div>
     </div>
 
     <div id="paneDivider" title="Drag to resize video / timeline · double-click to reset"></div>
 
     <div id="transport">
-      <span id="timecode" class="timecode">00:00:00.000</span>
-      <span class="tc-dur" id="durcode">/ 00:00:00.000</span>
-      <button data-seek="-10">«10s</button>
-      <button data-seek="-1">‹1s</button>
-      <button data-step="-1" title="1 frame back (←)">◂f</button>
-      <button id="playBtn" class="big">▶</button>
-      <button data-step="1" title="1 frame forward (→)">f▸</button>
-      <button data-seek="1">1s›</button>
-      <button data-seek="10">10s»</button>
-      <select id="speed">
-        <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
-        <option value="1" selected>1×</option><option value="2">2×</option>
-        <option value="4">4×</option><option value="8">8×</option><option value="16">16×</option>
-      </select>
-      <span class="vgap"></span>
-      <button id="markIn" class="in" title="Set in point (I)">⇤ In</button>
-      <button id="markOut" class="out" title="Set out point (O)">Out ⇥</button>
-      <button id="makeClip" class="accent" title="Create clip (C)">✂ Clip</button>
+      <div class="tgroup">
+        <span id="timecode" class="timecode">00:00:00.000</span>
+        <span class="tc-dur" id="durcode">/ 00:00:00.000</span>
+      </div>
+      <div class="tgroup center">
+        <button class="icon-btn wide" data-seek="-10" title="Back 10 s (J)"><svg viewBox="0 0 24 24"><path d="M11 17l-5-5 5-5"/><path d="M18 17l-5-5 5-5"/></svg><span class="lbl">10s</span></button>
+        <button class="icon-btn wide" data-seek="-1" title="Back 1 s (Shift+←)"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><span class="lbl">1s</span></button>
+        <button class="icon-btn" data-step="-1" title="1 frame back (←)"><svg viewBox="0 0 24 24"><path d="M7 5v14"/><path d="M17 6l-8 6 8 6"/></svg></button>
+        <button id="playBtn" class="big" title="Play / pause (Space)">
+          <svg class="ic-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="ic-pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+        </button>
+        <button class="icon-btn" data-step="1" title="1 frame forward (→)"><svg viewBox="0 0 24 24"><path d="M17 5v14"/><path d="M7 6l8 6-8 6"/></svg></button>
+        <button class="icon-btn wide" data-seek="1" title="Forward 1 s (Shift+→)"><span class="lbl">1s</span><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="icon-btn wide" data-seek="10" title="Forward 10 s"><span class="lbl">10s</span><svg viewBox="0 0 24 24"><path d="M13 17l5-5-5-5"/><path d="M6 17l5-5-5-5"/></svg></button>
+        <span class="vgap"></span>
+        <select id="speed" title="Playback speed (L cycles)">
+          <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option><option value="2">2×</option>
+          <option value="4">4×</option><option value="8">8×</option><option value="16">16×</option>
+        </select>
+      </div>
+      <div class="tgroup">
+        <button id="markIn" class="in" title="Set in point (I)">⇤ In<kbd>I</kbd></button>
+        <button id="markOut" class="out" title="Set out point (O)">Out ⇥<kbd>O</kbd></button>
+        <button id="makeClip" class="accent" title="Create clip (C)">Clip<kbd>C</kbd></button>
+      </div>
     </div>
 
     <canvas id="timeline" height="64"></canvas>
@@ -112,7 +127,7 @@
 </dialog>
 
 <dialog id="builderDlg">
-  <h3>🎞 Compilation Builder</h3>
+  <h3>Compilation Builder</h3>
   <p class="meta">Every exported clip, from every game. Check what to include, reorder with ▲▼, stitch into one video.</p>
   <div id="builderList"></div>
   <div id="builderWarn" class="meta warn"></div>
@@ -134,7 +149,7 @@
         <div class="cardBody">
           <canvas id="introPrev" class="cardPrev"></canvas>
           <div class="cardFields">
-            <button type="button" id="introPickBtn">📷 Photo…</button>
+            <button type="button" id="introPickBtn">Photo…</button>
             <input type="file" id="introFile" accept="image/*" class="hiddenfile">
             <input id="introKicker" placeholder="Small gold line" title="Small gold all-caps line above the title">
             <input id="introTitle" placeholder="Big title — | breaks the line" title="Use | to split onto multiple lines">
@@ -150,7 +165,7 @@
         <div class="cardBody">
           <canvas id="outroPrev" class="cardPrev"></canvas>
           <div class="cardFields">
-            <button type="button" id="outroPickBtn">📷 Photo…</button>
+            <button type="button" id="outroPickBtn">Photo…</button>
             <input type="file" id="outroFile" accept="image/*" class="hiddenfile">
             <input id="outroKicker" placeholder="Small gold line">
             <input id="outroTitle" placeholder="Big title — | breaks the line">

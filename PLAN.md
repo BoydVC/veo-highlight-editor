@@ -139,6 +139,15 @@ games it may become a usable "learns from your clips" ranking (embedding a game 
 CPU). Until then the scan phase stays manual; Veo's own event timeline/API is the other option.
 Small wins shipped instead: 16× playback and the last speed is remembered per browser.
 
+### UI refresh (Sept 2026)
+Visual pass only — no behavior changes, all IDs/classes the tests rely on kept. Neutral-pro dark
+theme (near-black canvas, layered grey surfaces, single cool-blue accent) driven by CSS tokens in
+`styles.css`; the timeline canvas reads the same tokens (`TL` in app.js) so it can't drift from
+the theme. Transport is a centered icon cluster with inline SVGs, hotkeys appear as `<kbd>` chips,
+clip cards show a frame grab at the in-point (grabbed on a hidden `<video>`, kept in memory for the
+session, keyed by id+inMs so a nudged in-point refreshes it), toasts sit bottom-right, focus rings
+and `prefers-reduced-motion` are honored.
+
 ## Future ideas (not in v1)
 - ~~Optical-flow / detector assist~~ — measured Sept 2026: the spline at 15–30 frames already matches dense clicks; a detector snap was worse. Only a "badge on grass" drift alarm would still make sense.
 - Score/clock corner bug; per-clip slow-motion replay segment
