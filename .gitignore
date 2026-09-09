@@ -14,3 +14,4 @@ Thumbs.db
 *.msg
 _*.png
 _server*.log
+tools/experiments/.cache/
