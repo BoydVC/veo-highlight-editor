@@ -8,6 +8,9 @@ const $ = id => document.getElementById(id);
 const video = $('video'), overlay = $('overlay'), wrap = $('videoWrap');
 const timeline = $('timeline');
 
+// The Playwright UI test opens the app with ?testRun=1 so its exports land in clips/_test/
+const TEST_RUN = new URLSearchParams(location.search).has('testRun');
+
 const state = {
   videoPath: null, videoName: null,
   fps: 30, duration: 0, vw: 1920, vh: 1080,
@@ -745,7 +748,7 @@ async function exportClip(c) {
         videoPath: state.videoPath,
         clip: { name: c.name, inMs: c.inMs, outMs: c.outMs, label: c.label, anchors: c.anchors, cropOffset: c.cropOffset || 0 },
         assets,
-        meta: { width: state.vw, height: state.vh, fps: state.fps, labelSeconds: settings.labelSeconds, format: fmt },
+        meta: { width: state.vw, height: state.vh, fps: state.fps, labelSeconds: settings.labelSeconds, format: fmt, testRun: TEST_RUN },
       }),
     }).then(r => r.json());
     if (res.error) throw new Error(res.error);
@@ -775,7 +778,7 @@ let builderItems = [];
 
 $('builderBtn').onclick = async () => {
   try {
-    const res = await fetch('/api/exports').then(r => r.json());
+    const res = await fetch('/api/exports' + (TEST_RUN ? '?includeTest=1' : '')).then(r => r.json());
     builderItems = res.files.map(f => ({ ...f, checked: true }));
     if (!builderItems.length) return toast('No exported clips yet — export some first, then build a compilation', true, 4500);
     if (!$('stitchName').value) $('stitchName').value = 'Charlotte Highlights';
@@ -993,6 +996,7 @@ $('doStitch').onclick = async e => {
     const res = await fetch('/api/stitch', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        testRun: TEST_RUN,
         files, outName: name,
         transition: transition || undefined, transitionSec: 0.5,
         intro: cardPayload('intro', dims), outro: cardPayload('outro', dims),

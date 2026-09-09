@@ -69,23 +69,23 @@ async function post(url, body) {
   const r3 = await post('/api/export', {
     videoPath,
     clip: { name: 'Test Game 03 Goal', inMs: 5000, outMs: 12000, label: 'Goal', anchors },
-    assets: { badgePng, circlePng, labelPng }, meta: { ...meta, format: 'vertical' },
+    assets: { badgePng, circlePng, labelPng }, meta: { testRun: true, ...meta, format: 'vertical' },
   });
   console.log('  →', r3.file);
 
   console.log('stitch (uniform 16:9, lossless copy)…');
-  const r4 = await post('/api/stitch', { files: [r1.file, r2.file], outName: 'Test Compilation' });
+  const r4 = await post('/api/stitch', { testRun: true, files: [r1.file, r2.file], outName: 'Test Compilation' });
   console.log('  →', r4.file);
 
   console.log('stitch (mixed formats, re-encode path)…');
-  const r5 = await post('/api/stitch', { files: [r1.file, r3.file], outName: 'Test Mixed' });
+  const r5 = await post('/api/stitch', { testRun: true, files: [r1.file, r3.file], outName: 'Test Mixed' });
   console.log('  →', r5.file);
 
   const durOf = f => parseFloat(execFileSync(ffprobe, ['-v', 'error', '-show_entries',
     'format=duration', '-of', 'csv=p=0', path.join(__dirname, 'clips', f)]).toString());
 
   console.log('stitch with crossfade transition…');
-  const r6 = await post('/api/stitch', {
+  const r6 = await post('/api/stitch', { testRun: true,
     files: [r1.file, r2.file], outName: 'Test Fade', transition: 'fade', transitionSec: 0.5,
   });
   const d6 = durOf(r6.file); // 7.0 + 3.5 − 0.5 overlap = 10.0
@@ -94,7 +94,7 @@ async function post(url, body) {
 
   console.log('stitch with intro/outro cards + fade through black…');
   const cardPng = makePng('_card.png', ['-f', 'lavfi', '-i', 'color=c=navy:s=1920x1080']);
-  const r7 = await post('/api/stitch', {
+  const r7 = await post('/api/stitch', { testRun: true,
     files: [r1.file, r2.file], outName: 'Test Cards', transition: 'fadeblack', transitionSec: 0.5,
     intro: { png: cardPng, seconds: 3 }, outro: { png: cardPng, seconds: 3 },
   });
@@ -103,7 +103,7 @@ async function post(url, body) {
   if (Math.abs(d7 - 15.0) > 0.45) throw new Error('cards stitch duration off: ' + d7);
 
   console.log('stitch with cards, no transition (concat path)…');
-  const r8 = await post('/api/stitch', {
+  const r8 = await post('/api/stitch', { testRun: true,
     files: [r1.file, r2.file], outName: 'Test Cards Cut',
     intro: { png: cardPng, seconds: 2 },
   });
@@ -112,7 +112,7 @@ async function post(url, body) {
   if (Math.abs(d8 - 12.5) > 0.35) throw new Error('cards concat duration off: ' + d8);
 
   console.log('exports list with probed dims…');
-  const list = await (await fetch(BASE + '/api/exports')).json();
+  const list = await (await fetch(BASE + '/api/exports?includeTest=1')).json();
   for (const f of list.files) console.log(`  ${f.name}: ${f.width}x${f.height} ${f.duration.toFixed(1)}s`);
 
   const v = list.files.find(f => f.name === r3.file);
@@ -128,5 +128,6 @@ async function post(url, body) {
   for (const f of [r1, r2, r3, r4, r5, r6, r7, r8].map(r => r.file)) {
     fs.unlinkSync(path.join(__dirname, 'clips', f));
   }
+  fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true });
   console.log('ALL TESTS PASSED');
 })().catch(e => { console.error('TEST FAILED:', e.message); process.exit(1); });

@@ -75,4 +75,6 @@ your clips and tracking are still there.
 ## Health check
 
 `node test-export.js` (with the server running) round-trips a tracked export,
-a plain cut, and a stitch against a synthetic test video.
+a plain cut, and a stitch against a synthetic test video; `node test-ui.js` drives the real UI
+with Playwright. Both write their outputs to `clips/_test/` — hidden from the Compilation
+Builder — and delete them when they finish.

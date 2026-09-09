@@ -22,7 +22,7 @@ if (!fs.existsSync(testGame)) {
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 
-  await page.goto('http://localhost:4242');
+  await page.goto('http://localhost:4242/?testRun=1');
   await page.waitForSelector('#videoSelect option:nth-child(2)', { state: 'attached' });
 
   // load the test game (by name — never a real game file)
@@ -102,6 +102,7 @@ if (!fs.existsSync(testGame)) {
   console.log('autosave restored:', await page.$eval('.clip .name', el => el.textContent));
 
   await page.screenshot({ path: '_ui.png' });
+  fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true }); // tidy test exports
   await browser.close();
 
   if (errors.length) {

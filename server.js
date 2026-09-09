@@ -10,6 +10,7 @@ const ROOT = __dirname;
 const GAMES_DIR = path.join(ROOT, 'games');
 const PROJECTS_DIR = path.join(ROOT, 'projects');
 const CLIPS_DIR = path.join(ROOT, 'clips');
+const TEST_DIR = path.join(CLIPS_DIR, '_test'); // test-suite outputs; hidden from the builder
 for (const d of [GAMES_DIR, PROJECTS_DIR, CLIPS_DIR]) fs.mkdirSync(d, { recursive: true });
 
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.m4v', '.mkv', '.webm']);
@@ -114,7 +115,7 @@ app.post('/api/export', async (req, res) => {
     const { videoPath, clip, assets, meta } = req.body;
     const vertical = meta && meta.format === 'vertical';
     const suffix = vertical ? ' [9x16]' : '';
-    const subdir = vertical ? 'Reels' : 'YouTube';
+    const subdir = (meta && meta.testRun ? '_test/' : '') + (vertical ? 'Reels' : 'YouTube');
     fs.mkdirSync(path.join(CLIPS_DIR, subdir), { recursive: true });
     const outPath = path.join(CLIPS_DIR, subdir, safeName(clip.name) + suffix + '.mp4');
     await exportClip({ videoPath, outPath, clip, assets, meta });
@@ -129,23 +130,27 @@ app.post('/api/export', async (req, res) => {
 // compilation builder so it can show formats and warn about mixing them
 const probeCache = new Map();
 // every .mp4 in clips/ plus one level of subfolders (YouTube/, Reels/), as
-// CLIPS_DIR-relative names like "Reels/Goal [9x16].mp4"
-function listExportNames() {
+// CLIPS_DIR-relative names like "Reels/Goal [9x16].mp4". The test suite writes
+// under _test/ (one level deeper); that tree is skipped unless includeTest is set.
+function listExportNames(includeTest) {
   const names = [];
-  for (const e of fs.readdirSync(CLIPS_DIR, { withFileTypes: true })) {
-    if (e.isDirectory()) {
-      for (const f of fs.readdirSync(path.join(CLIPS_DIR, e.name))) {
-        if (f.toLowerCase().endsWith('.mp4')) names.push(e.name + '/' + f);
+  const walk = (dir, prefix, maxDepth) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix + e.name;
+      if (e.isDirectory()) {
+        if (rel === '_test') { if (includeTest) walk(path.join(dir, e.name), rel + '/', 2); continue; }
+        if (maxDepth > 0) walk(path.join(dir, e.name), rel + '/', maxDepth - 1);
+      } else if (e.name.toLowerCase().endsWith('.mp4')) {
+        names.push(rel);
       }
-    } else if (e.name.toLowerCase().endsWith('.mp4')) {
-      names.push(e.name);
     }
-  }
+  };
+  walk(CLIPS_DIR, '', 1);
   return names;
 }
 app.get('/api/exports', async (req, res) => {
   const files = [];
-  for (const f of listExportNames()) {
+  for (const f of listExportNames(!!req.query.includeTest)) {
     const full = path.join(CLIPS_DIR, f);
     const st = fs.statSync(full);
     const key = f + '|' + st.mtimeMs;
@@ -169,9 +174,11 @@ app.post('/api/stitch', async (req, res) => {
       return full;
     });
     for (const f of inputs) if (!fs.existsSync(f)) throw new Error('missing clip: ' + f);
-    const outPath = path.join(CLIPS_DIR, safeName(outName || 'Highlights') + '.mp4');
+    const outDir = req.body.testRun ? TEST_DIR : CLIPS_DIR;
+    fs.mkdirSync(outDir, { recursive: true });
+    const outPath = path.join(outDir, safeName(outName || 'Highlights') + '.mp4');
     await stitchClips(inputs, outPath, { transition, transitionSec, intro, outro });
-    res.json({ ok: true, file: path.basename(outPath) });
+    res.json({ ok: true, file: path.relative(CLIPS_DIR, outPath).split(path.sep).join('/') });
   } catch (e) {
     console.error('stitch failed:', e);
     res.status(500).json({ error: String(e.message || e) });
