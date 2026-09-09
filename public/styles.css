@@ -1,0 +1,169 @@
+:root {
+  --bg: #101216;
+  --panel: #181b22;
+  --panel2: #1f242e;
+  --border: #2c3340;
+  --text: #e8ebf0;
+  --dim: #8b93a3;
+  --accent: #d92a6c;
+  --accent2: #ffd400;
+  --in: #2fbf71;
+  --out: #ef5350;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 "Segoe UI", system-ui, sans-serif;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+#topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--border);
+}
+.brand { font-size: 16px; white-space: nowrap; }
+.spacer { flex: 1; }
+.meta { color: var(--dim); font-size: 12px; }
+
+button, select, input {
+  background: var(--panel2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; font: inherit; cursor: pointer;
+}
+button:hover { border-color: var(--dim); }
+button.accent { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+button.accent:hover { filter: brightness(1.15); }
+button.in { color: var(--in); } button.out { color: var(--out); }
+input[type=range] { padding: 0; }
+
+main { flex: 1; display: flex; min-height: 0; }
+#playerPane { flex: 1; display: flex; flex-direction: column; padding: 10px 14px; min-width: 0; }
+
+#videoWrap { position: relative; background: #000; border-radius: 8px; overflow: hidden; flex: 1; min-height: 0; }
+#video { width: 100%; height: 100%; object-fit: contain; display: block; }
+#overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#videoWrap.tracking #overlay { pointer-events: auto; cursor: crosshair; }
+#videoWrap.cropAdj { cursor: ew-resize; } /* 9:16 mode: drag to shift the crop window */
+
+#trackBanner {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(217, 42, 108, .92); padding: 6px 14px; border-radius: 20px;
+  font-size: 13px; display: flex; gap: 8px; align-items: center; white-space: nowrap;
+}
+#trackBanner .dot { width: 9px; height: 9px; border-radius: 50%; background: #fff; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+#trackBanner select { padding: 2px 6px; font-size: 12px; }
+
+#dropHint {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--dim); text-align: center; padding: 20px; font-size: 15px;
+}
+#dropHint code { color: var(--accent2); }
+
+#transport { display: flex; align-items: center; gap: 6px; padding: 10px 0 6px; flex-wrap: wrap; }
+#transport .big { font-size: 17px; padding: 6px 18px; }
+.timecode { font: 600 18px/1 Consolas, monospace; color: var(--accent2); min-width: 150px; }
+.tc-dur { font: 12px Consolas, monospace; color: var(--dim); margin-right: 8px; }
+.vgap { width: 14px; }
+
+#timeline { width: 100%; height: var(--tlH, 64px); flex: none; border-radius: 6px; background: var(--panel); cursor: pointer; display: block; }
+#paneDivider { flex: none; height: 9px; margin-top: 2px; cursor: ns-resize; position: relative; touch-action: none; }
+#paneDivider::after {
+  content: ''; position: absolute; left: 50%; top: 3px;
+  width: 46px; height: 3px; margin-left: -23px; border-radius: 2px; background: #2c3340;
+}
+#paneDivider:hover::after, #paneDivider.dragging::after { background: #5a6375; }
+#timelineHint { font-size: 11px; padding: 3px 2px 6px; }
+
+#labelBar { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 0; }
+#labelBar button { font-size: 12px; padding: 4px 10px; }
+#labelBar button .k { color: var(--accent2); font-weight: 700; margin-right: 4px; }
+
+#cheats { color: var(--dim); font-size: 12px; margin-top: 4px; }
+#cheats summary { cursor: pointer; }
+.cheatgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; padding: 8px 4px; }
+.cheatgrid b { color: var(--accent2); }
+
+#clipPane {
+  width: 360px; background: var(--panel); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 10px;
+}
+#clipPane h2 { margin: 2px 4px 10px; font-size: 15px; }
+#clipCount { color: var(--dim); font-weight: 400; font-size: 12px; }
+#clipList { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+
+.clip {
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; cursor: pointer;
+}
+.clip.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.clip .name { font-weight: 600; font-size: 13px; word-break: break-all; }
+.clip .name input { width: 100%; font-size: 13px; padding: 3px 6px; }
+.clip .sub { color: var(--dim); font-size: 11px; margin: 3px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+.clip .badge-label { background: var(--accent); border-radius: 4px; padding: 0 6px; color: #fff; font-weight: 600; }
+.clip .track-ok { color: var(--in); }
+.clip .actions { display: flex; gap: 5px; margin-top: 6px; }
+.clip .actions button { font-size: 11px; padding: 3px 8px; }
+.clip .status { font-size: 11px; margin-top: 4px; }
+.clip .status.ok { color: var(--in); }
+.clip .status.err { color: var(--out); }
+.clip .status.busy { color: var(--accent2); }
+
+dialog {
+  background: var(--panel); color: var(--text); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 22px; min-width: 480px;
+}
+dialog::backdrop { background: rgba(0,0,0,.6); }
+dialog h3 { margin: 0 0 12px; }
+dialog form { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dim); }
+dialog label.wide { width: 100%; }
+dialog input { color: var(--text); }
+dialog .preview { width: 100%; background: #26442a; border-radius: 8px; display: flex; justify-content: center; }
+dialog menu { width: 100%; display: flex; justify-content: flex-end; gap: 8px; margin: 8px 0 0; padding: 0; }
+
+#builderDlg { min-width: 620px; max-width: 80vw; max-height: 92vh; overflow-y: auto; }
+#builderDlg .meta { width: 100%; margin: 0 0 8px; }
+#builderDlg .meta.warn { color: var(--accent2); min-height: 16px; margin-top: 6px; }
+#builderList { width: 100%; max-height: 34vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+
+.builder-extras { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.builder-extras .trow { flex-direction: row; align-items: center; gap: 8px; }
+.cards2 { display: flex; gap: 10px; }
+.cardCfg { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px 8px; margin: 0; }
+.cardCfg legend { font-size: 12px; color: var(--dim); }
+.cardCfg legend label { flex-direction: row; align-items: center; gap: 6px; cursor: pointer; }
+.cardCfg .cardBody { display: none; gap: 8px; }
+.cardCfg.on .cardBody { display: flex; }
+.cardPrev { width: 150px; flex: none; align-self: flex-start; border-radius: 6px; background: #0d1b33; }
+.cardFields { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+.cardFields input { width: 100%; box-sizing: border-box; }
+.cardFields .secsLbl { flex-direction: row; align-items: center; gap: 6px; }
+.cardFields .secsLbl input { width: 64px; }
+.hiddenfile { display: none; }
+.brow {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 8px; font-size: 12px;
+}
+.brow.off { opacity: .45; }
+.brow .bname { flex: 1; word-break: break-all; }
+.brow .chip {
+  border-radius: 4px; padding: 0 6px; font-weight: 700; font-size: 10px;
+  background: #2c3340; color: var(--text);
+}
+.brow .chip.v916 { background: var(--accent); color: #fff; }
+.brow .bdur { color: var(--dim); min-width: 48px; text-align: right; }
+.brow button { padding: 1px 7px; font-size: 11px; }
+.builder-controls { display: flex; gap: 8px; width: 100%; margin-top: 10px; }
+.builder-controls input { flex: 1; cursor: text; }
+
+#toast {
+  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 18px; font-size: 13px; z-index: 50; max-width: 70vw;
+  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+}
+#toast.err { border-color: var(--out); color: var(--out); }
+.hidden { display: none !important; }

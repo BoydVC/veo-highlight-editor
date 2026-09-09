@@ -1,0 +1,17 @@
+{
+  "name": "charlotte-clips",
+  "version": "1.0.0",
+  "description": "Personal sports highlight clip editor for Veo game film (lacrosse/soccer)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

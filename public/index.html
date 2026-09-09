@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charlotte Clips</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥍</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand">🥍 <strong>Charlotte Clips</strong></div>
+  <select id="videoSelect" title="Choose a game file from the games/ folder"></select>
+  <button id="refreshVideos" title="Rescan games folder">⟳</button>
+  <span id="videoMeta" class="meta"></span>
+  <span class="spacer"></span>
+  <select id="exportFormat" title="Export format — 16:9 for YouTube, 9:16 follows the tracked player for Reels/Shorts/TikTok">
+    <option value="wide">16:9 · YouTube</option>
+    <option value="vertical">9:16 · Reels</option>
+  </select>
+  <button id="settingsBtn">⚙ Badge &amp; Settings</button>
+  <button id="exportAllBtn" class="accent">Export All Clips</button>
+  <button id="builderBtn">🎞 Compilation Builder</button>
+</header>
+
+<main>
+  <section id="playerPane">
+    <div id="videoWrap">
+      <video id="video" preload="auto"></video>
+      <canvas id="overlay"></canvas>
+      <div id="trackBanner" class="hidden">
+        <span class="dot"></span> TRACKING — click her feet · <b>→</b> skip · <b>U</b> undo ·
+        <b>Esc</b> done · <span id="anchorCount">0 anchors</span>
+        <select id="skipFrames" title="Frames to advance after each click">
+          <option value="5">+5 frames</option>
+          <option value="10">+10 frames</option>
+          <option value="15" selected>+15 frames (~0.5s)</option>
+          <option value="30">+30 frames (~1s)</option>
+        </select>
+      </div>
+      <div id="dropHint">Pick a game from the top bar — or drop video files into the <code>games/</code> folder and hit ⟳</div>
+    </div>
+
+    <div id="paneDivider" title="Drag to resize video / timeline · double-click to reset"></div>
+
+    <div id="transport">
+      <span id="timecode" class="timecode">00:00:00.000</span>
+      <span class="tc-dur" id="durcode">/ 00:00:00.000</span>
+      <button data-seek="-10">«10s</button>
+      <button data-seek="-1">‹1s</button>
+      <button data-step="-1" title="1 frame back (←)">◂f</button>
+      <button id="playBtn" class="big">▶</button>
+      <button data-step="1" title="1 frame forward (→)">f▸</button>
+      <button data-seek="1">1s›</button>
+      <button data-seek="10">10s»</button>
+      <select id="speed">
+        <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option><option value="2">2×</option>
+        <option value="4">4×</option><option value="8">8×</option>
+      </select>
+      <span class="vgap"></span>
+      <button id="markIn" class="in" title="Set in point (I)">⇤ In</button>
+      <button id="markOut" class="out" title="Set out point (O)">Out ⇥</button>
+      <button id="makeClip" class="accent" title="Create clip (C)">✂ Clip</button>
+    </div>
+
+    <canvas id="timeline" height="64"></canvas>
+    <div id="timelineHint" class="meta">wheel = zoom · click/drag = scrub · double-click = reset zoom</div>
+
+    <div id="labelBar"></div>
+
+    <details id="cheats">
+      <summary>⌨ Keyboard shortcuts</summary>
+      <div class="cheatgrid">
+        <span><b>Space</b>/<b>K</b> play/pause</span><span><b>←→</b> 1 frame (33ms)</span>
+        <span><b>Shift+←→</b> 1s jump</span><span><b>J</b> back 10s · <b>L</b> cycle speed</span>
+        <span><b>I</b>/<b>O</b> in/out point</span><span><b>C</b> create clip</span>
+        <span><b>1–9</b> label selected clip</span><span><b>T</b> track selected clip</span>
+        <span><b>, .</b> nudge IN ∓/± frame</span><span><b>Shift+, .</b> nudge OUT ∓/± frame</span>
+        <span><b>E</b> export selected clip</span><span><b>U</b> undo anchor (tracking)</span>
+        <span><b>Alt+↑↓</b> reorder selected clip</span><span><b>drag video</b> shift 9:16 crop</span>
+      </div>
+    </details>
+  </section>
+
+  <aside id="clipPane">
+    <h2>Clips <span id="clipCount"></span></h2>
+    <div id="clipList"></div>
+  </aside>
+</main>
+
+<dialog id="settingsDlg">
+  <h3>Badge &amp; Settings</h3>
+  <form method="dialog">
+    <label>Player name <input id="setName" value="CHARLOTTE"></label>
+    <label>Number <input id="setNumber" value="7" size="3"></label>
+    <label>Badge color <input id="setBadgeColor" type="color" value="#d92a6c"></label>
+    <label>Badge text <input id="setTextColor" type="color" value="#ffffff"></label>
+    <label>Circle color <input id="setCircleColor" type="color" value="#ffd400"></label>
+    <label>Badge size <input id="setBadgeScale" type="range" min="0.5" max="2" step="0.05" value="1"></label>
+    <label>Circle size <input id="setCircleScale" type="range" min="0.5" max="2.5" step="0.05" value="1"></label>
+    <label>Label banner seconds <input id="setLabelSecs" type="number" min="1" max="10" step="0.5" value="3" size="4"></label>
+    <label class="wide">Labels (comma separated, order = hotkeys 1–9)
+      <input id="setLabels" value="Goal, Assist, Shot, Draw Win, Ground Ball, Dodge, Dribble, Steal, Defense">
+    </label>
+    <div class="preview"><canvas id="badgePreview" width="420" height="150"></canvas></div>
+    <menu>
+      <button value="cancel">Close</button>
+      <button value="ok" class="accent" id="saveSettings">Save</button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="builderDlg">
+  <h3>🎞 Compilation Builder</h3>
+  <p class="meta">Every exported clip, from every game. Check what to include, reorder with ▲▼, stitch into one video.</p>
+  <div id="builderList"></div>
+  <div id="builderWarn" class="meta warn"></div>
+
+  <div class="builder-extras">
+    <label class="trow">Transition between clips
+      <select id="transitionSel">
+        <option value="">None — hard cut (lossless when formats match)</option>
+        <option value="fade">Crossfade</option>
+        <option value="fadeblack">Fade through black</option>
+        <option value="slideleft">Slide</option>
+        <option value="circleopen">Circle reveal</option>
+      </select>
+    </label>
+
+    <div class="cards2">
+      <fieldset class="cardCfg" id="cardCfg-intro">
+        <legend><label><input type="checkbox" id="introOn"> Intro card</label></legend>
+        <div class="cardBody">
+          <canvas id="introPrev" class="cardPrev"></canvas>
+          <div class="cardFields">
+            <button type="button" id="introPickBtn">📷 Photo…</button>
+            <input type="file" id="introFile" accept="image/*" class="hiddenfile">
+            <input id="introKicker" placeholder="Small gold line" title="Small gold all-caps line above the title">
+            <input id="introTitle" placeholder="Big title — | breaks the line" title="Use | to split onto multiple lines">
+            <input id="introSub" placeholder="Under title (vs Opponent · Date)">
+            <input id="introSub2" placeholder="Smaller line (team · accolades)">
+            <label class="secsLbl">Seconds <input id="introSecs" type="number" min="1" max="15" step="0.5" value="3.5"></label>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="cardCfg" id="cardCfg-outro">
+        <legend><label><input type="checkbox" id="outroOn"> Outro card</label></legend>
+        <div class="cardBody">
+          <canvas id="outroPrev" class="cardPrev"></canvas>
+          <div class="cardFields">
+            <button type="button" id="outroPickBtn">📷 Photo…</button>
+            <input type="file" id="outroFile" accept="image/*" class="hiddenfile">
+            <input id="outroKicker" placeholder="Small gold line">
+            <input id="outroTitle" placeholder="Big title — | breaks the line">
+            <input id="outroSub" placeholder="Under title (vs Opponent · Date)">
+            <input id="outroSub2" placeholder="Smaller line (team · accolades)">
+            <label class="secsLbl">Seconds <input id="outroSecs" type="number" min="1" max="15" step="0.5" value="3.5"></label>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+  </div>
+
+  <div class="builder-controls">
+    <input id="stitchName" placeholder="Compilation name" size="34">
+    <button id="doStitch" class="accent">Stitch</button>
+    <button id="closeBuilder" type="button">Close</button>
+  </div>
+</dialog>
+
+<div id="toast" class="hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

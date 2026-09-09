@@ -1,0 +1,14 @@
+# bulky / local-only media & working data
+node_modules/
+games/
+clips/
+projects/
+_ui.png
+*.log
+Thumbs.db
+~$*
+# never commit credentials or data extracts
+.env
+*.csv
+*.idf
+*.msg
