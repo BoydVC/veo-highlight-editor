@@ -62,7 +62,7 @@ select {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%23a6aebc' stroke-width='1.6'/></svg>");
   background-repeat: no-repeat; background-position: right 9px center;
 }
-input[type=range] { padding: 0; background: transparent; border: 0; }
+input[type=range] { padding: 0; background: transparent; border: 0; accent-color: var(--accent); }
 input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
 kbd {
   display: inline-block; min-width: 16px; padding: 0 5px; line-height: 16px;
