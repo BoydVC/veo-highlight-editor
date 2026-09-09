@@ -12,3 +12,5 @@ Thumbs.db
 *.csv
 *.idf
 *.msg
+_*.png
+_server*.log

@@ -58,8 +58,11 @@ your clips and tracking are still there.
 
 ## Tracking tips
 
-- Default anchor spacing is **15 frames (~0.5 s)** — smooth for normal play.
-  Drop to 5–10 for dodges/draws/quick cuts, 30 for slow build-ups.
+- **Leave spacing at 15 frames (~0.5 s).** Measured on 39 real clips: the spline through
+  15-frame clicks lands within ~3 px (p95 ≈ 10 px) of 5-frame clicks — the badge ring is ~90 px
+  wide, so it's visually identical at a third of the clicks. Use **30 frames (~1 s)** on straight
+  runs (≈5× fewer clicks, p95 ≈ 15 px); drop to **10** only for dodges and draw scrambles.
+  Check your own footage anytime: `node tools/spacing-report.js`.
 - Click her **feet** — the circle sits there and the name badge hangs just below it.
 - If she's briefly hidden behind another player, press `→` to skip ahead without clicking.
 

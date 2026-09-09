@@ -53,6 +53,23 @@ Crucially, the mode is **click-to-advance**: each click places the anchor *and* 
 the video, so it's literally one click per anchor — no extra keypress. `→` skips ahead
 without placing (player briefly obscured), `U` undoes the last anchor, `Esc` finishes.
 
+#### Measured (Sept 2026)
+Four real games (39 clips, ~2,550 anchors) had all been tracked at **5-frame** spacing out of
+caution. `tools/spacing-report.js` thins those clicks and re-interpolates with the same
+Catmull-Rom spline; error is measured against the user's own dense clicks:
+
+| spacing | vs 5-frame clicks (typical mean / p95) | verdict |
+|---|---|---|
+| 15 frames (0.5 s) | 3 px / 10 px | visually identical — badge ring is ~90 px wide |
+| 30 frames (1 s) | 6 px / 15 px, worst clip 40 px on a sharp cut | fine for runs; drop to 10–15 for dodges/draws |
+| 45+ frames | p95 30–110 px | too sparse |
+
+A detector-based "snap between clicks" was also tried and **made paths worse** (mean ~15 px,
+p95 ~55 px): detected foot points differ from the click convention and are noisy on 30 px
+players. Conclusion: the spline is already the right tool — **15 frames default cuts clicks
+~3×, 30 frames ~5×**, no tracker needed. (Branch `feature/refine-tracking` history has the
+detector attempt.)
+
 ### Burned-in overlays at export
 The browser renders the badge ("CHARLOTTE #7"), foot ellipse, and label banner as PNGs
 (exactly matching the on-screen preview) and posts them with the clip. The server computes
@@ -105,7 +122,7 @@ supports re-ordering, stitches same-format clips losslessly (`-c copy`) and fall
 re-encode with padding when formats are mixed.
 
 ## Future ideas (not in v1)
-- Optical-flow assist that proposes the next anchor (you confirm with one keypress)
+- ~~Optical-flow / detector assist~~ — measured Sept 2026: the spline at 15–30 frames already matches dense clicks; a detector snap was worse. Only a "badge on grass" drift alarm would still make sense.
 - Score/clock corner bug; per-clip slow-motion replay segment
 - Music bed + crossfades on the stitched compilation
 - Veo API integration to pull film directly
