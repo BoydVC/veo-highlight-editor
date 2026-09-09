@@ -21,7 +21,7 @@ Then open **http://localhost:4242** in your browser (Chrome/Edge).
 
 | Step | How |
 |---|---|
-| Scan the game | `Space` play, `L` cycles 1×/2×/4×/8×, `J` back 10s, `Shift+←→` 1s |
+| Scan the game | `Space` play, `L` cycles 1×/2×/4×/8×/16× (last speed is remembered), `J` back 10s, `Shift+←→` 1s |
 | Found a play | `I` at the start, `O` at the end, `C` → clip created & auto-named |
 | Fine trim | `←→` step one frame (33 ms); `,`/`.` nudge IN, `Shift+,`/`.` nudge OUT |
 | Label it | `1`–`9` (Goal, Assist, Shot, Draw Win, … — edit the list in Settings) |

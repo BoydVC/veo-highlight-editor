@@ -15,7 +15,7 @@ const state = {
   clips: [], selectedId: null,
   tracking: null,            // { clipId }
   view: { start: 0, end: 0 }, // timeline zoom window (seconds)
-  speedSteps: [1, 2, 4, 8], speedIdx: 0,
+  speedSteps: [1, 2, 4, 8, 16], speedIdx: 0,
   exporting: false,
 };
 
@@ -105,6 +105,7 @@ async function loadVideo(encPath) {
 
   video.src = '/video?path=' + encodeURIComponent(p);
   video.load();
+  restoreSpeed();
 
   const proj = await fetch('/api/project?video=' + encodeURIComponent(p)).then(r => r.json());
   state.clips = proj.clips || [];
@@ -376,7 +377,19 @@ function togglePlay() { video.paused ? video.play() : video.pause(); }
 $('playBtn').onclick = togglePlay;
 document.querySelectorAll('[data-seek]').forEach(b => b.onclick = () => jump(parseFloat(b.dataset.seek)));
 document.querySelectorAll('[data-step]').forEach(b => b.onclick = () => stepFrames(parseInt(b.dataset.step)));
-$('speed').onchange = e => { video.playbackRate = parseFloat(e.target.value); };
+// playback speed — 16× is the browser ceiling; the last speed is remembered per browser
+function setSpeed(sp) {
+  sp = clamp(sp, 0.25, 16);
+  video.playbackRate = sp;
+  $('speed').value = String(sp);
+  const i = state.speedSteps.indexOf(sp);
+  if (i >= 0) state.speedIdx = i;
+  try { localStorage.setItem('cc-speed', String(sp)); } catch { /* storage unavailable */ }
+}
+function restoreSpeed() {
+  try { const sp = parseFloat(localStorage.getItem('cc-speed')); if (sp) setSpeed(sp); } catch { /* ignore */ }
+}
+$('speed').onchange = e => setSpeed(parseFloat(e.target.value));
 $('markIn').onclick = () => setIn();
 $('markOut').onclick = () => setOut();
 $('makeClip').onclick = () => createClip();
@@ -1020,7 +1033,7 @@ document.addEventListener('keydown', e => {
     case 'l': {
       state.speedIdx = (state.speedIdx + 1) % state.speedSteps.length;
       const sp = state.speedSteps[state.speedIdx];
-      video.playbackRate = sp; $('speed').value = String(sp);
+      setSpeed(sp);
       if (video.paused) video.play();
       toast('Speed ' + sp + '×', false, 1200);
       break;

@@ -89,7 +89,7 @@ Badge/label settings live in localStorage.
 | `Space` / `K` | play / pause |
 | `←` `→` | step 1 frame (33 ms) |
 | `Shift+←/→` | jump 1 s |
-| `J` / `L` | jump 10 s back / cycle speed 1×→2×→4×→8× |
+| `J` / `L` | jump 10 s back / cycle speed 1×→2×→4×→8×→16× |
 | `I` / `O` | set in / out point |
 | `C` | create clip from in/out |
 | `1`–`9` | label selected clip |
@@ -120,6 +120,24 @@ forward+backward exponential filter so it pans like a camera operator instead of
 The **Compilation Builder** lists every exported clip across all games with format chips,
 supports re-ordering, stitches same-format clips losslessly (`-c copy`) and falls back to a
 re-encode with padding when formats are mixed.
+
+### Scan-assist experiments (Sept 2026) — all negative, don't repeat
+Goal: a ranked list of candidate moments so scanning a 40–50 min game means jumping
+between ~20 spots instead of scrubbing at 8× (~10 min). Tested against the 39 user-marked
+clips (20 Draw Wins) in four games; "recall" = a candidate within −12 s/+8 s of a clip start.
+
+| signal | result |
+|---|---|
+| audio loudness / whistle-band peaks | 92–95% recall but 3–4 candidates/min — fires every ~17 s, recall is chance |
+| motion stillness→burst (players set, whistle, go) | 65–70% of draws at 0.7–1.7/min |
+| YOLO person-cluster at 1 fps | ≥5 players within 180 px in 74% of all seconds; ~2.5/min |
+| CLIP ViT-B/32 embeddings, leave-one-game-out linear probe (100 draw frames) | top-30 candidates catch 60% of draws; zero-shot prompts 80% at top-40; works on one game, doesn't transfer across fields/lighting yet |
+
+Why they fail: Veo lacrosse film is continuously loud, clustered and stop-start, so cheap
+signals aren't selective. The CLIP probe is the only one that could improve — with ~10+ labeled
+games it may become a usable "learns from your clips" ranking (embedding a game costs ~75 s on
+CPU). Until then the scan phase stays manual; Veo's own event timeline/API is the other option.
+Small wins shipped instead: 16× playback and the last speed is remembered per browser.
 
 ## Future ideas (not in v1)
 - ~~Optical-flow / detector assist~~ — measured Sept 2026: the spline at 15–30 frames already matches dense clicks; a detector snap was worse. Only a "badge on grass" drift alarm would still make sense.
