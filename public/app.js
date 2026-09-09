@@ -24,7 +24,7 @@ const state = {
 
 const DEFAULT_SETTINGS = {
   name: 'CHARLOTTE', number: '7',
-  badgeColor: '#d92a6c', textColor: '#ffffff', circleColor: '#ffd400',
+  badgeColor: '#d92a6c', textColor: '#ffd400', circleColor: '#ffd400',
   badgeScale: 1, circleScale: 1, labelSeconds: 3,
   labels: ['Goal', 'Assist', 'Shot', 'Draw Win', 'Ground Ball', 'Dodge', 'Dribble', 'Steal', 'Defense'],
 };
@@ -1147,6 +1147,14 @@ function readSettingsForm() {
   };
 }
 
+// one click to match the badge/circle/banner to the app's own palette (CSS tokens)
+$('themeColorsBtn').onclick = () => {
+  const cs = getComputedStyle(document.documentElement);
+  $('setBadgeColor').value = cs.getPropertyValue('--accent').trim();
+  $('setTextColor').value = cs.getPropertyValue('--gold').trim();
+  $('setCircleColor').value = cs.getPropertyValue('--gold').trim();
+  drawBadgePreview();
+};
 $('settingsDlg').addEventListener('input', drawBadgePreview);
 $('settingsDlg').addEventListener('close', () => {
   if ($('settingsDlg').returnValue === 'ok') {
