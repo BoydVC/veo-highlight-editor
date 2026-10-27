@@ -1,7 +1,7 @@
 {
-  "name": "charlotte-clips",
+  "name": "replay-deck",
   "version": "1.0.0",
-  "description": "Personal sports highlight clip editor for Veo game film (lacrosse/soccer)",
+  "description": "Personal highlight clip editor for full-game Veo film (lacrosse, soccer, any sport)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
