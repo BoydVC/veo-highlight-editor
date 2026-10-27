@@ -135,6 +135,17 @@ const events = new AbortController();
   const r5 = await post('/api/stitch', { testRun: true, files: [r1.file, r3.file], outName: 'Test Mixed' });
   console.log('  →', r5.file);
 
+  console.log('stitch (same size/fps, different encoder → must re-encode, not splice)…');
+  // ultrafast x264 has no CABAC, so its H.264 headers differ from any export's
+  const odd = '_test/Test Odd Encoder.mp4';
+  execFileSync(ffmpeg, ['-y', '-v', 'error', '-ss', '20', '-i', videoPath, '-t', '2',
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', path.join(__dirname, 'clips', odd)]);
+  const sigOf = f => execFileSync(ffprobe, ['-v', 'error', '-select_streams', 'v:0', '-show_data_hash', 'md5',
+    '-show_entries', 'stream=extradata_hash', '-of', 'csv=p=0', path.join(__dirname, 'clips', f)]).toString().trim();
+  const rOdd = await post('/api/stitch', { testRun: true, files: [odd, r1.file], outName: 'Test Odd Mix' });
+  if (sigOf(rOdd.file) === sigOf(odd)) throw new Error('clips from different encoders were spliced with -c copy');
+  console.log(`  → ${rOdd.file}: re-encoded`);
+
   const durOf = f => parseFloat(execFileSync(ffprobe, ['-v', 'error', '-show_entries',
     'format=duration', '-of', 'csv=p=0', path.join(__dirname, 'clips', f)]).toString());
 

@@ -87,6 +87,14 @@ ffmpeg). Output is written as `<name>.part.mp4` and renamed when done, so the Co
 never lists a half-written file. A clip remembers its job id in the project, so a reloaded page
 picks the progress back up.
 
+### Encoder
+`lib/exporter.js` picks NVENC (`h264_nvenc`, preset p5, VBR CQ 19, High profile) when a one-off test
+encode succeeds, otherwise libx264 (veryfast, CRF 18); `CC_ENCODER=cpu` forces libx264. If an NVENC
+encode fails mid-job it is redone once on the CPU. Measured on the GTX 980 Ti / 4-core PC (Oct 2026):
+a 40 s tracked export takes 5.7 s (16:9) / 7.3 s (9:16) on NVENC vs 10.7 s / 13.2 s on libx264.
+Because the two encoders write different SPS/PPS headers, the lossless `-c copy` stitch also requires
+matching H.264 header fingerprints (ffprobe `extradata_hash`); otherwise it re-encodes.
+
 ### Persistence
 Every video gets a sidecar project file (`projects/<video name>.json`) — clips, labels,
 anchors — autosaved on every change. Close the browser mid-game, pick up where you left off.

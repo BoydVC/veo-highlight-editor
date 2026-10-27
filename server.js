@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const ffprobePath = require('ffprobe-static').path;
-const { exportClip, stitchClips, probeMeta } = require('./lib/exporter');
+const { exportClip, stitchClips, probeMeta, encoderName } = require('./lib/exporter');
 const jobs = require('./lib/jobs');
 
 const ROOT = __dirname;
@@ -252,5 +252,5 @@ app.listen(PORT, HOST, () => {
   console.log('  GameReels is running:  http://localhost:' + PORT + '  (this PC only)');
   console.log('  Drop full-game video files into:  ' + GAMES_DIR);
   console.log('  Exported clips land in:           ' + CLIPS_DIR);
-  console.log('');
+  encoderName().then(n => console.log('  Video encoder:                    ' + n + '\n'));
 });

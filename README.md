@@ -46,9 +46,13 @@ does both: it opens the browser and starts the server.
   player shows exactly what the crop will keep — **drag the video left/right** to shift the
   crop off the tracked player when the action is beside them (double-click to recenter;
   the shift is saved per clip).
+- Exports encode on the **NVIDIA GPU (NVENC)** when there is one — about 1.8× faster than the
+  CPU on this PC — and fall back to the CPU (libx264) automatically; the server prints which one
+  it picked at startup. `set CC_ENCODER=cpu` before `npm start` forces the CPU.
 - Vertical exports get a ` [9x16]` suffix, and exports are sorted into `clips/YouTube/`
   or `clips/Reels/` by format.
-- Stitching same-format clips is lossless; mixing formats re-encodes with padding (the
+- Stitching same-format clips from the same encoder is lossless (GPU and CPU exports have
+  different H.264 headers, so mixing them re-encodes); mixing formats re-encodes with padding (the
   builder warns you — usually keep one format per compilation). Picking a transition or
   adding intro/outro cards always re-encodes (that's what blends the frames).
 - Intro/outro cards: check the box in the builder, pick a photo, fill in the text
