@@ -1,0 +1,4 @@
+{
+  "//": "Tells Node these browser files are ES modules, so the server can import() them too.",
+  "type": "module"
+}

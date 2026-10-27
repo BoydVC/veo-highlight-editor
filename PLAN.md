@@ -109,6 +109,7 @@ server.js          Express server: streaming, probe, project save/load, export, 
 lib/exporter.js    ffmpeg command builder: cut + sendcmd tracking + label overlay
 public/index.html  single-page UI
 public/app.js      all frontend logic
+public/js/spline.js  Catmull-Rom spline shared by the preview, the exporter and tools/
 public/styles.css  dark, keyboard-first UI
 games/             drop full-game files here (the server only serves videos from this folder)
 projects/          autosaved sidecar project JSON per video
