@@ -17,14 +17,20 @@
   </button>
   <span id="videoMeta" class="meta"></span>
   <span class="spacer"></span>
-  <select id="exportFormat" title="Export format — 16:9 for YouTube, 9:16 follows the tracked player for Reels/Shorts/TikTok">
-    <option value="wide">16:9 · YouTube</option>
-    <option value="vertical">9:16 · Reels</option>
-  </select>
   <button id="settingsBtn">Badge &amp; Settings</button>
   <button id="exportAllBtn" class="accent">Export All Clips</button>
   <button id="builderBtn">Compilation Builder</button>
 </header>
+
+<div id="presetBar">
+  <div class="preset-lead">
+    <strong>Social presets</strong>
+    <span>Lacrosse &amp; soccer</span>
+  </div>
+  <div id="presetChoices" role="radiogroup" aria-label="Hold a social export preset to preview it"></div>
+  <p id="presetStatus" class="meta"></p>
+  <button type="button" id="applyPreset" title="Commit the held preset for the next export. Does not post or share.">Apply</button>
+</div>
 
 <main>
   <section id="playerPane">
@@ -94,7 +100,7 @@
         <span><b>1–9</b> label selected clip</span><span><b>T</b> track selected clip</span>
         <span><b>, .</b> nudge IN ∓/± frame</span><span><b>Shift+, .</b> nudge OUT ∓/± frame</span>
         <span><b>E</b> export selected clip</span><span><b>U</b> undo anchor (tracking)</span>
-        <span><b>Alt+↑↓</b> reorder selected clip</span><span><b>drag video</b> shift 9:16 crop</span>
+        <span><b>Alt+↑↓</b> reorder selected clip</span><span><b>drag video</b> shift 9:16 or 1:1 crop</span>
       </div>
     </details>
   </section>
@@ -190,6 +196,7 @@
 
 <div id="toast" class="hidden"></div>
 
+<script src="/presets.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
