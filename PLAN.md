@@ -80,6 +80,9 @@ top-center for the first 3 s with a fade.
 ### Persistence
 Every video gets a sidecar project file (`projects/<video name>.json`) — clips, labels,
 anchors — autosaved on every change. Close the browser mid-game, pick up where you left off.
+Saves write a temp file and rename it into place (a crash can't leave half a file), keeping the
+previous save as `<name>.json.bak`; an unreadable project is set aside as `.corrupt-<time>.json`
+and the backup is restored automatically.
 Badge/label settings live in localStorage.
 
 ## Keyboard map (full list in the app's cheat sheet)
@@ -106,7 +109,7 @@ lib/exporter.js    ffmpeg command builder: cut + sendcmd tracking + label overla
 public/index.html  single-page UI
 public/app.js      all frontend logic
 public/styles.css  dark, keyboard-first UI
-games/             drop full-game files here (or open any path on disk)
+games/             drop full-game files here (the server only serves videos from this folder)
 projects/          autosaved sidecar project JSON per video
 clips/             exported clips + stitched compilations
 ```

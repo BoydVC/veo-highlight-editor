@@ -112,6 +112,7 @@ async function loadVideo(encPath) {
   resetThumbs();
 
   const proj = await fetch('/api/project?video=' + encodeURIComponent(p)).then(r => r.json());
+  if (proj.notice) toast(proj.notice, true, 8000);
   state.clips = proj.clips || [];
   state.selectedId = state.clips[0] ? state.clips[0].id : null;
   renderClips();

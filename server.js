@@ -15,6 +15,17 @@ for (const d of [GAMES_DIR, PROJECTS_DIR, CLIPS_DIR]) fs.mkdirSync(d, { recursiv
 
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.m4v', '.mkv', '.webm']);
 const PORT = 4242;
+const HOST = '127.0.0.1'; // this machine only — the API reads game files and writes projects
+
+// The UI passes absolute paths it got from /api/videos; anything outside games/
+// is refused so the server can't be used to read arbitrary files.
+const samePath = process.platform === 'win32' ? s => s.toLowerCase() : s => s;
+function gamePath(p) {
+  if (!p) return null;
+  const full = path.resolve(p);
+  if (!samePath(full).startsWith(samePath(GAMES_DIR + path.sep))) return null;
+  return fs.existsSync(full) ? full : null;
+}
 
 const app = express();
 app.use(express.json({ limit: '80mb' })); // overlay PNGs ride along with export requests
@@ -39,17 +50,27 @@ app.get('/api/videos', (req, res) => {
 
 // ---- streaming with range support (works for any local path) -------------
 app.get('/video', (req, res) => {
-  const p = req.query.path;
-  if (!p || !fs.existsSync(p)) return res.status(404).send('not found');
+  const p = gamePath(req.query.path);
+  if (!p) return res.status(404).send('not found');
   const stat = fs.statSync(p);
   const total = stat.size;
   const type = { '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.mkv': 'video/x-matroska', '.webm': 'video/webm' }[path.extname(p).toLowerCase()] || 'application/octet-stream';
-  const range = req.headers.range;
-  if (range) {
-    const m = /bytes=(\d*)-(\d*)/.exec(range);
-    let start = m[1] ? parseInt(m[1], 10) : 0;
-    let end = m[2] ? parseInt(m[2], 10) : total - 1;
-    end = Math.min(end, total - 1);
+  // single ranges only ("a-b", "a-", or suffix "-n"); anything else falls through
+  // to a full 200 response, which the spec allows for a Range header we don't parse
+  const m = req.headers.range && /^bytes=(\d*)-(\d*)$/.exec(req.headers.range.trim());
+  if (m && (m[1] || m[2])) {
+    let start, end;
+    if (m[1]) {
+      start = parseInt(m[1], 10);
+      end = m[2] ? Math.min(parseInt(m[2], 10), total - 1) : total - 1;
+    } else {
+      start = Math.max(0, total - parseInt(m[2], 10)); // suffix: the last n bytes
+      end = total - 1;
+    }
+    if (start > end || start >= total) {
+      res.writeHead(416, { 'Content-Range': `bytes */${total}` });
+      return res.end();
+    }
     res.writeHead(206, {
       'Content-Range': `bytes ${start}-${end}/${total}`,
       'Accept-Ranges': 'bytes',
@@ -65,8 +86,8 @@ app.get('/video', (req, res) => {
 
 // ---- ffprobe: fps, duration, dimensions -----------------------------------
 app.get('/api/probe', (req, res) => {
-  const p = req.query.path;
-  if (!p || !fs.existsSync(p)) return res.status(404).json({ error: 'not found' });
+  const p = gamePath(req.query.path);
+  if (!p) return res.status(404).json({ error: 'not found' });
   const args = ['-v', 'error', '-select_streams', 'v:0',
     '-show_entries', 'stream=width,height,r_frame_rate,avg_frame_rate,duration',
     '-show_entries', 'format=duration', '-of', 'json', p];
@@ -95,14 +116,36 @@ function projectFile(videoPath) {
   const base = path.basename(videoPath, path.extname(videoPath)).replace(/[^\w\- ]+/g, '_');
   return path.join(PROJECTS_DIR, base + '.json');
 }
+// Saves go to a temp file that's renamed into place, so a crash mid-write can't
+// leave half a JSON file; the previous version is kept as <name>.json.bak.
+function writeProject(f, data) {
+  const tmp = f + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  if (fs.existsSync(f)) fs.copyFileSync(f, f + '.bak');
+  fs.renameSync(tmp, f);
+}
+function readJson(f) {
+  try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; }
+}
 app.get('/api/project', (req, res) => {
   const f = projectFile(req.query.video || '');
   if (!fs.existsSync(f)) return res.json({ clips: [] });
-  res.json(JSON.parse(fs.readFileSync(f, 'utf8')));
+  const data = readJson(f);
+  if (data) return res.json(data);
+  // unreadable: set it aside (never overwrite it) and fall back to the backup
+  const corrupt = f.replace(/\.json$/, `.corrupt-${Date.now()}.json`);
+  fs.renameSync(f, corrupt);
+  console.error('project file unreadable, moved to', corrupt);
+  const bak = fs.existsSync(f + '.bak') ? readJson(f + '.bak') : null;
+  if (bak) {
+    fs.copyFileSync(f + '.bak', f);
+    return res.json({ ...bak, notice: 'Project file was damaged — restored the previous save.' });
+  }
+  res.json({ clips: [], notice: 'Project file was damaged and no backup was found — it was kept as ' + path.basename(corrupt) });
 });
 app.post('/api/project', (req, res) => {
   const { video, data } = req.body;
-  fs.writeFileSync(projectFile(video), JSON.stringify(data, null, 2));
+  writeProject(projectFile(video), data);
   res.json({ ok: true });
 });
 
@@ -112,7 +155,9 @@ function safeName(s) {
 }
 app.post('/api/export', async (req, res) => {
   try {
-    const { videoPath, clip, assets, meta } = req.body;
+    const { clip, assets, meta } = req.body;
+    const videoPath = gamePath(req.body.videoPath);
+    if (!videoPath) throw new Error('game video not found in games folder');
     const vertical = meta && meta.format === 'vertical';
     const suffix = vertical ? ' [9x16]' : '';
     const subdir = (meta && meta.testRun ? '_test/' : '') + (vertical ? 'Reels' : 'YouTube');
@@ -185,9 +230,9 @@ app.post('/api/stitch', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log('');
-  console.log('  Charlotte Clips is running:  http://localhost:' + PORT);
+  console.log('  Charlotte Clips is running:  http://localhost:' + PORT + '  (this PC only)');
   console.log('  Drop full-game video files into:  ' + GAMES_DIR);
   console.log('  Exported clips land in:           ' + CLIPS_DIR);
   console.log('');

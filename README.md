@@ -54,7 +54,11 @@ Then open **http://localhost:4242** in your browser (Chrome/Edge).
   re-pick the photo each session.
 
 Everything autosaves per game into `projects/` — close the browser, come back later,
-your clips and tracking are still there.
+your clips and tracking are still there. The previous save is kept as `.json.bak`, and a damaged
+project file is restored from it automatically.
+
+The server only answers on this PC (`127.0.0.1`) and only plays videos from `games/`, so other
+devices on your network can't reach it.
 
 ## Tracking tips
 
