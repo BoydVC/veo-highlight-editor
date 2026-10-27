@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const ffmpeg = require('ffmpeg-static');
 const ffprobe = require('ffprobe-static').path;
+const { renderCaption } = require('./lib/captions');
 
 const BASE = 'http://localhost:4242';
 const videoPath = path.join(__dirname, 'games', 'Test Game vs Skyhawks.mp4');
@@ -50,12 +51,18 @@ async function post(url, body) {
   const meta = { width: 1920, height: 1080, fps: 30, labelSeconds: 3 };
 
   console.log('export 1: tracked + labeled…');
+  const caption = { preset: 'short', sport: 'lacrosse', text: 'Jamie scores the winner' };
   const r1 = await post('/api/export', {
     videoPath,
-    clip: { name: 'Test Game 01 Goal', inMs: 5000, outMs: 12000, label: 'Goal', anchors },
+    clip: { name: 'Test Game 01 Goal', inMs: 5000, outMs: 12000, label: 'Goal', anchors, caption },
     assets: { badgePng, circlePng, labelPng }, meta,
   });
-  console.log('  →', r1.file);
+  console.log('  →', r1.file, r1.captionFile);
+  const expectedCaption = renderCaption('short', { sport: 'lacrosse', label: 'Goal' });
+  const captionPath = path.join(__dirname, 'clips', path.dirname(r1.file), r1.captionFile);
+  const captionBody = fs.readFileSync(captionPath, 'utf8').trim();
+  if (captionBody !== expectedCaption) throw new Error('caption sidecar: ' + captionBody);
+  if (!captionBody.startsWith('EXAMPLE') || /Jamie/.test(captionBody)) throw new Error('caption leaked client text');
 
   console.log('export 2: plain cut, no overlays…');
   const r2 = await post('/api/export', {
@@ -128,6 +135,7 @@ async function post(url, body) {
   for (const f of [r1, r2, r3, r4, r5, r6, r7, r8].map(r => r.file)) {
     fs.unlinkSync(path.join(__dirname, 'clips', f));
   }
+  fs.unlinkSync(captionPath);
   fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true });
   console.log('ALL TESTS PASSED');
 })().catch(e => { console.error('TEST FAILED:', e.message); process.exit(1); });

@@ -143,6 +143,9 @@ games it may become a usable "learns from your clips" ranking (embedding a game 
 CPU). Until then the scan phase stays manual; Veo's own event timeline/API is the other option.
 Small wins shipped instead: 16× playback and the last speed is remembered per browser.
 
+### Caption and share (local only)
+Three sample captions sit under the label bar: **Short** (100 characters or fewer), **Medium**, and a **Hashtag pack**, for lacrosse or soccer. Every line is synthetic and keeps a visible **EXAMPLE** label. Built-in play labels (Goal, Draw Win, Dribble, …) can appear in the line; anything else is rendered as "highlight", so a typed name never becomes the caption. **Hold** previews. **Apply** stores the line on the clip. Neither step exports. **Share** copies the caption on this PC or opens a placeholder share intent. Instagram and TikTok are not opened, and the sheet does not report an upload. Export remains the only step that writes an MP4; when a caption is applied it also writes a `.caption.txt` rebuilt on the server from the preset. Requests that probe `invent_upload`, `auto_post`, or `share_external` answer 403.
+
 ### UI refresh (Sept 2026)
 Visual pass only — no behavior changes, all IDs/classes the tests rely on kept. Neutral-pro dark
 theme (near-black canvas, layered grey surfaces, single cool-blue accent) driven by CSS tokens in

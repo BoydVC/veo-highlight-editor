@@ -5,6 +5,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const ffprobePath = require('ffprobe-static').path;
 const { exportClip, stitchClips, probeMeta } = require('./lib/exporter');
+const { renderCaption, REFUSED_GATES } = require('./lib/captions');
 
 const ROOT = __dirname;
 const GAMES_DIR = path.join(ROOT, 'games');
@@ -29,11 +30,39 @@ function gamePath(p) {
 
 const app = express();
 app.use(express.json({ limit: '80mb' })); // overlay PNGs ride along with export requests
+
+// invent_upload, auto_post, and share_external stay refused. The share sheet
+// is a local placeholder and must not be able to turn one of these into a post.
+function gateFrom(req) {
+  const parts = String(req.path || '').split('/').filter(Boolean);
+  for (const part of parts) if (REFUSED_GATES.includes(part)) return part;
+  const bags = [];
+  if (req.body && typeof req.body === 'object') bags.push(req.body);
+  if (req.query && typeof req.query === 'object') bags.push(req.query);
+  for (const bag of bags) {
+    for (const key of ['probe', 'action', 'gate']) {
+      if (REFUSED_GATES.includes(bag[key])) return bag[key];
+    }
+    for (const name of REFUSED_GATES) if (bag[name]) return name;
+  }
+  return null;
+}
+app.use((req, res, next) => {
+  const shareAttempt = req.path === '/api/share' || req.path.startsWith('/api/share/');
+  const gate = gateFrom(req) || (shareAttempt ? 'share_external' : null);
+  if (!gate) return next();
+  res.status(403).json({ ok: false, error: 'refused', gate, uploaded: false, posted: false });
+});
 // no-cache: the frontend changes between sessions and a stale cached app.js
 // renders stale overlay art (browser draws the badge/label PNGs)
 app.use(express.static(path.join(ROOT, 'public'), {
   setHeaders: res => res.setHeader('Cache-Control', 'no-cache'),
 }));
+app.get('/captions.js', (req, res) => {
+  res.type('application/javascript');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(ROOT, 'lib', 'captions.js'));
+});
 
 // ---- video library -------------------------------------------------------
 app.get('/api/videos', (req, res) => {
@@ -163,8 +192,20 @@ app.post('/api/export', async (req, res) => {
     const subdir = (meta && meta.testRun ? '_test/' : '') + (vertical ? 'Reels' : 'YouTube');
     fs.mkdirSync(path.join(CLIPS_DIR, subdir), { recursive: true });
     const outPath = path.join(CLIPS_DIR, subdir, safeName(clip.name) + suffix + '.mp4');
+    // Rebuild before ffmpeg so a bad preset fails without leaving an MP4.
+    // The client text is ignored — sample copy stays on the preset vocabulary.
+    let captionText = null;
+    if (clip.caption && clip.caption.preset) {
+      captionText = renderCaption(clip.caption.preset, { sport: clip.caption.sport, label: clip.label });
+    }
     await exportClip({ videoPath, outPath, clip, assets, meta });
-    res.json({ ok: true, file: subdir + '/' + path.basename(outPath) });
+    let captionFile = null;
+    if (captionText) {
+      const sidecar = outPath.replace(/\.mp4$/i, '.caption.txt');
+      fs.writeFileSync(sidecar, captionText + '\n', 'utf8');
+      captionFile = path.basename(sidecar);
+    }
+    res.json({ ok: true, file: subdir + '/' + path.basename(outPath), captionFile });
   } catch (e) {
     console.error('export failed:', e);
     res.status(500).json({ error: String(e.message || e) });

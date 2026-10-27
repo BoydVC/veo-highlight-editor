@@ -85,6 +85,23 @@
 
     <div id="labelBar"></div>
 
+    <section id="captionBar" aria-label="Social caption">
+      <div class="caption-head">
+        <span class="example-flag" id="captionExample" title="Synthetic sample copy. This label stays on the caption.">EXAMPLE</span>
+        <span class="caption-title">Caption</span>
+        <div id="captionSports" role="radiogroup" aria-label="Sport for the sample caption">
+          <button type="button" data-sport="lacrosse" aria-pressed="true">Lacrosse</button>
+          <button type="button" data-sport="soccer" aria-pressed="false">Soccer</button>
+        </div>
+        <div id="captionPresets" role="radiogroup" aria-label="Hold a caption preset"></div>
+        <button type="button" id="applyCaption" disabled title="Keep the held caption on this clip. Does not export or post.">Apply</button>
+        <button type="button" id="shareCaption" title="Open the share sheet. Copies text on this PC. Does not upload.">Share</button>
+        <span id="captionCount" class="meta"></span>
+      </div>
+      <p id="captionStatus" class="meta"></p>
+      <p id="captionPreview" class="caption-preview"></p>
+    </section>
+
     <details id="cheats">
       <summary>⌨ Keyboard shortcuts</summary>
       <div class="cheatgrid">
@@ -94,6 +111,7 @@
         <span><b>1–9</b> label selected clip</span><span><b>T</b> track selected clip</span>
         <span><b>, .</b> nudge IN ∓/± frame</span><span><b>Shift+, .</b> nudge OUT ∓/± frame</span>
         <span><b>E</b> export selected clip</span><span><b>U</b> undo anchor (tracking)</span>
+        <span><b>Caption</b> hold a preset, then Apply</span><span><b>Share</b> copy, or a placeholder</span>
         <span><b>Alt+↑↓</b> reorder selected clip</span><span><b>drag video</b> shift 9:16 crop</span>
       </div>
     </details>
@@ -188,8 +206,29 @@
   </div>
 </dialog>
 
+<dialog id="shareDlg">
+  <h3>Share sheet</h3>
+  <p class="meta">Copy the caption on this PC, or open a share-intent placeholder. GameReels does not upload to Instagram or TikTok.</p>
+  <div class="share-caption">
+    <span class="example-flag">EXAMPLE</span>
+    <p id="shareCaptionText"></p>
+    <p id="shareCaptionMeta" class="meta"></p>
+  </div>
+  <div id="shareIntent" class="share-intent hidden" role="status">
+    <strong>Share intent placeholder</strong>
+    <p id="shareIntentMsg"></p>
+    <ul id="shareIntentLines"></ul>
+  </div>
+  <menu>
+    <button type="button" id="copyCaptionBtn">Copy caption</button>
+    <button type="button" id="openShareIntent">Open share intent</button>
+    <button type="button" id="closeShare">Close</button>
+  </menu>
+</dialog>
+
 <div id="toast" class="hidden"></div>
 
+<script src="/captions.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
