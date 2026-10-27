@@ -1,4 +1,4 @@
-/* Replay Deck — neutral-pro dark theme.
+/* GameReels — neutral-pro dark theme.
    Tokens → base → layout → transport → timeline → labels → clip cards → dialogs → toast */
 :root {
   --bg: #101216;
@@ -82,7 +82,12 @@ button.accent kbd { color: #fff; background: rgba(255,255,255,.14); border-color
   display: flex; align-items: center; gap: 10px; height: 50px;
   padding: 0 14px; background: var(--surface-1); border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; margin-right: 6px; }
+.brand { display: flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; margin-right: 2px; }
+.sport-chip {
+  flex: none; border-radius: 999px; padding: 3px 10px;
+  font-weight: 700; font-size: 11px; letter-spacing: .01em; white-space: nowrap;
+  color: #1a1400; background: var(--gold); border: 1px solid #ffe56a;
+}
 .brand .mark {
   width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center;
   background: linear-gradient(135deg, var(--accent), #8e1a48); font-size: 13px;

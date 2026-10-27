@@ -1,4 +1,4 @@
-// Replay Deck — local server: video streaming, probing, project persistence, ffmpeg export
+// GameReels — local server: video streaming, probing, project persistence, ffmpeg export
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -232,7 +232,7 @@ app.post('/api/stitch', async (req, res) => {
 
 app.listen(PORT, HOST, () => {
   console.log('');
-  console.log('  Replay Deck is running:  http://localhost:' + PORT + '  (this PC only)');
+  console.log('  GameReels is running:  http://localhost:' + PORT + '  (this PC only)');
   console.log('  Drop full-game video files into:  ' + GAMES_DIR);
   console.log('  Exported clips land in:           ' + CLIPS_DIR);
   console.log('');

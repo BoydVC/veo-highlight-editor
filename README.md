@@ -1,7 +1,7 @@
-# 🎬 Replay Deck
+# 🎬 GameReels
 
-Personal highlight-clip editor for full-game Veo film (lacrosse, soccer, any sport). Keyboard-first
-clipping, hotkey labels, click-to-track player badge overlays, one-button export and stitching.
+Turn full-game Veo film into social clips — Reels, YouTube Shorts, and 16:9. **Best for lacrosse and soccer.**
+Keyboard-first clipping, hotkey labels, click-to-track player badge overlays, one-button export and stitching.
 See `PLAN.md` for the design.
 
 ## Start it
@@ -11,7 +11,7 @@ npm install        (first time only — also downloads a bundled ffmpeg, nothing
 npm start
 ```
 
-Then open **http://localhost:4242** in your browser (Chrome/Edge). On Windows, `Start Replay Deck.bat`
+Then open **http://localhost:4242** in your browser (Chrome/Edge). On Windows, `Start GameReels.bat`
 does both: it opens the browser and starts the server.
 
 1. Copy game files into the `games/` folder (Veo MP4 downloads work as-is), hit **⟳**.
@@ -25,7 +25,7 @@ does both: it opens the browser and starts the server.
 | Scan the game | `Space` play, `L` cycles 1×/2×/4×/8×/16× (last speed is remembered), `J` back 10s, `Shift+←→` 1s |
 | Found a play | `I` at the start, `O` at the end, `C` → clip created & auto-named |
 | Fine trim | `←→` step one frame (33 ms); `,`/`.` nudge IN, `Shift+,`/`.` nudge OUT |
-| Label it | `1`–`9` (Goal, Assist, Shot, Draw Win, … — edit the list in Settings) |
+| Label it | `1`–`9` (Goal, Assist, Shot, Draw Win, Ground Ball, Dodge, Dribble, … — lacrosse and soccer defaults; edit the list in Settings) |
 | Track the player | `T` → click their feet → video auto-advances → click again → `Esc` when done (`U` undoes) |
 | Check it | ▶ Review on the clip — overlay preview plays live |
 | Pick a format | top-bar selector: **16:9 · YouTube** (1920×1080) or **9:16 · Reels** (1080×1920) |

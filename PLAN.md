@@ -1,8 +1,8 @@
-# Replay Deck — Sports Highlight Editor (Plan)
+# GameReels — Sports Highlight Editor (Plan)
 
-A personal, local web app for turning full-game Veo film (lacrosse, soccer, any sport) into labeled,
-player-tracked highlight clips — fast, with keyboard-first workflow and none of the
-learning curve of a full NLE.
+A personal, local web app for turning full-game Veo film into social clips (Reels, YouTube Shorts,
+and 16:9). **Best for lacrosse and soccer.** Labeled, player-tracked highlight clips — fast, with a
+keyboard-first workflow and none of the learning curve of a full NLE.
 
 ## The core workflow it's built around
 

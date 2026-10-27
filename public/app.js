@@ -1,4 +1,4 @@
-/* Replay Deck — frontend. Sections:
+/* GameReels — frontend. Sections:
    state · utils · video loading · render loop · timeline · keyboard ·
    clips · labels · tracking · overlay art (badge/circle/label) · export · settings */
 'use strict';
@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS = {
   name: '', number: '',
   badgeColor: '#d92a6c', textColor: '#ffd400', circleColor: '#ffd400',
   badgeScale: 1, circleScale: 1, labelSeconds: 3,
+  // Shared plus lacrosse (Draw Win, Ground Ball, Dodge) and soccer (Dribble). Editable in Settings.
   labels: ['Goal', 'Assist', 'Shot', 'Draw Win', 'Ground Ball', 'Dodge', 'Dribble', 'Steal', 'Defense'],
 };
 let settings = loadSettings();
@@ -396,10 +397,10 @@ function setSpeed(sp) {
   $('speed').value = String(sp);
   const i = state.speedSteps.indexOf(sp);
   if (i >= 0) state.speedIdx = i;
-  try { localStorage.setItem('rd-speed', String(sp)); } catch { /* storage unavailable */ }
+  try { localStorage.setItem('gr-speed', String(sp)); } catch { /* storage unavailable */ }
 }
 function restoreSpeed() {
-  try { const sp = parseFloat(localStorage.getItem('rd-speed')); if (sp) setSpeed(sp); } catch { /* ignore */ }
+  try { const sp = parseFloat(localStorage.getItem('gr-speed')); if (sp) setSpeed(sp); } catch { /* ignore */ }
 }
 $('speed').onchange = e => setSpeed(parseFloat(e.target.value));
 $('markIn').onclick = () => setIn();
@@ -410,9 +411,9 @@ $('videoSelect').onchange = e => { if (e.target.value) loadVideo(e.target.value)
 $('skipFrames').onchange = e => e.target.blur(); // keep arrow keys on the video, not the dropdown
 
 // export format: 16:9 (YouTube) or 9:16 follow-crop (Reels/Shorts/TikTok)
-$('exportFormat').value = localStorage.getItem('rd-format') || 'wide';
+$('exportFormat').value = localStorage.getItem('gr-format') || 'wide';
 $('exportFormat').onchange = e => {
-  localStorage.setItem('rd-format', e.target.value);
+  localStorage.setItem('gr-format', e.target.value);
   e.target.blur();
   drawOverlay();
   if (e.target.value === 'vertical') toast('9:16 mode — dashed guide shows the Reels crop (follows tracking) · drag the video to shift it left/right', false, 4500);
@@ -844,7 +845,7 @@ $('builderBtn').onclick = async () => {
     builderItems = res.files.map(f => ({ ...f, checked: true }));
     if (!builderItems.length) return toast('No exported clips yet — export some first, then build a compilation', true, 4500);
     if (!$('stitchName').value) $('stitchName').value = 'Highlights';
-    $('transitionSel').value = localStorage.getItem('rd-transition') || '';
+    $('transitionSel').value = localStorage.getItem('gr-transition') || '';
     renderBuilder();
     loadCardForms();
     updateCardPreviews();
@@ -907,7 +908,7 @@ function readCardForm(kind) {
 
 function loadCardForms() {
   let saved = {};
-  try { saved = JSON.parse(localStorage.getItem('rd-cards')) || {}; } catch {}
+  try { saved = JSON.parse(localStorage.getItem('gr-cards')) || {}; } catch {}
   for (const kind of ['intro', 'outro']) {
     const d = { ...CARD_DEFAULTS[kind], ...(saved[kind] || {}) };
     if (!d.title) {
@@ -926,7 +927,7 @@ function loadCardForms() {
 }
 
 function saveCardForms() {
-  localStorage.setItem('rd-cards', JSON.stringify({ intro: readCardForm('intro'), outro: readCardForm('outro') }));
+  localStorage.setItem('gr-cards', JSON.stringify({ intro: readCardForm('intro'), outro: readCardForm('outro') }));
 }
 
 // first checked clip decides the compilation's shape
@@ -1055,7 +1056,7 @@ $('doStitch').onclick = async e => {
   const name = $('stitchName').value.trim() || 'Highlights';
   const dims = builderDims();
   const transition = $('transitionSel').value;
-  localStorage.setItem('rd-transition', transition);
+  localStorage.setItem('gr-transition', transition);
   const btn = $('doStitch');
   btn.disabled = true; btn.textContent = 'Stitching…';
   try {
@@ -1124,7 +1125,7 @@ document.addEventListener('keydown', e => {
 // ---------- settings ----------------------------------------------------------------
 function loadSettings() {
   try {
-    const s = JSON.parse(localStorage.getItem('rd-settings'));
+    const s = JSON.parse(localStorage.getItem('gr-settings'));
     return { ...DEFAULT_SETTINGS, ...s };
   } catch { return { ...DEFAULT_SETTINGS }; }
 }
@@ -1170,7 +1171,7 @@ $('settingsDlg').addEventListener('input', drawBadgePreview);
 $('settingsDlg').addEventListener('close', () => {
   if ($('settingsDlg').returnValue === 'ok') {
     settings = readSettingsForm();
-    localStorage.setItem('rd-settings', JSON.stringify(settings));
+    localStorage.setItem('gr-settings', JSON.stringify(settings));
     artCache.key = null;
     renderLabelBar();
     drawOverlay();
