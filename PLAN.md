@@ -78,6 +78,15 @@ per-frame x/y from the spline and feeds ffmpeg a `sendcmd` script driving two `o
 filters — buttery motion, no per-frame image sequence needed. The label banner overlays
 top-center for the first 3 s with a fade.
 
+### Export queue
+Exports and stitches are jobs on the server (`lib/jobs.js`), run one at a time — a full-frame
+encode already uses every core. `POST /api/export` / `/api/stitch` return a job id at once; the
+browser follows `/api/jobs/events` (Server-Sent Events: a snapshot, then one message per change)
+for progress parsed from ffmpeg's `-progress` output, and `DELETE /api/jobs/:id` cancels (kills
+ffmpeg). Output is written as `<name>.part.mp4` and renamed when done, so the Compilation Builder
+never lists a half-written file. A clip remembers its job id in the project, so a reloaded page
+picks the progress back up.
+
 ### Persistence
 Every video gets a sidecar project file (`projects/<video name>.json`) — clips, labels,
 anchors — autosaved on every change. Close the browser mid-game, pick up where you left off.
@@ -107,6 +116,7 @@ Badge/label settings live in localStorage.
 ```
 server.js          Express server: streaming, probe, project save/load, export, stitch
 lib/exporter.js    ffmpeg command builder: cut + sendcmd tracking + label overlay
+lib/jobs.js        export/stitch queue: one ffmpeg at a time, progress over SSE, cancel
 public/index.html  single-page UI
 public/app.js      all frontend logic
 public/js/spline.js  Catmull-Rom spline shared by the preview, the exporter and tools/

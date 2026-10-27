@@ -98,6 +98,15 @@ button.accent kbd { color: #fff; background: rgba(255,255,255,.14); border-color
 #videoMeta { font-family: var(--mono); font-size: 11.5px; letter-spacing: .01em; }
 #exportFormat { font-weight: 600; }
 #topbar button, #topbar select { flex: none; }
+/* background job status — the fill behind the text is the running job's progress */
+#jobsPill {
+  display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 380px;
+  padding: 3px 4px 3px 12px; border: 1px solid var(--accent-a55); border-radius: 999px;
+  font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums;
+  background: linear-gradient(90deg, var(--accent-a22) calc(var(--p, 0) * 100%), transparent 0);
+}
+#jobsText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#jobsPill .icon-btn { width: 22px; height: 22px; padding: 0; border-radius: 50%; font-size: 11px; }
 
 /* ---- main layout ----------------------------------------------------------- */
 main { flex: 1; display: flex; min-height: 0; }
@@ -227,7 +236,10 @@ main { flex: 1; display: flex; min-height: 0; }
 .clip .status { grid-column: 1 / -1; font-size: 11px; margin-top: 2px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clip .status.ok { color: var(--in); }
 .clip .status.err { color: var(--out); white-space: normal; }
-.clip .status.busy { color: var(--warn); }
+.clip .status.busy {
+  color: var(--warn); border-radius: 3px; padding: 0 4px; font-variant-numeric: tabular-nums;
+  background: linear-gradient(90deg, var(--accent-a22) calc(var(--p, 0) * 100%), transparent 0);
+}
 
 /* ---- dialogs --------------------------------------------------------------- */
 dialog {

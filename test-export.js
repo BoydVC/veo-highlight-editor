@@ -25,7 +25,8 @@ function makePng(name, args) {
   return 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 }
 
-async function post(url, body) {
+// export/stitch are queued jobs: post() starts one, waitJob() polls it to the end
+async function start(url, body) {
   const r = await fetch(BASE + url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -34,6 +35,35 @@ async function post(url, body) {
   if (!r.ok || j.error) throw new Error(url + ' failed: ' + (j.error || r.status));
   return j;
 }
+async function waitJob(id) {
+  for (;;) {
+    const j = await (await fetch(BASE + '/api/jobs/' + id)).json();
+    if (j.status === 'done') return j;
+    if (j.status !== 'queued' && j.status !== 'running') throw new Error(`job ${j.name} ${j.status}: ${j.error || ''}`);
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+const post = async (url, body) => waitJob((await start(url, body)).jobId);
+
+// listen to the job event stream the UI uses, remembering the highest progress seen per job
+const progressSeen = new Map();
+const events = new AbortController();
+(async () => {
+  const res = await fetch(BASE + '/api/jobs/events', { signal: events.signal });
+  const dec = new TextDecoder();
+  let buf = '';
+  for await (const chunk of res.body) {
+    buf += dec.decode(chunk, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n\n')) >= 0) {
+      const msg = buf.slice(0, i); buf = buf.slice(i + 2);
+      const data = /^data: (.*)$/m.exec(msg);
+      if (!data || msg.startsWith('event: snapshot')) continue;
+      const j = JSON.parse(data[1]);
+      if (j.status === 'running') progressSeen.set(j.id, Math.max(progressSeen.get(j.id) || 0, j.progress));
+    }
+  }
+})().catch(() => { /* aborted at the end */ });
 
 (async () => {
   // stand-in overlay art (the real app renders these on canvas)
@@ -56,6 +86,30 @@ async function post(url, body) {
     assets: { badgePng, circlePng, labelPng }, meta,
   });
   console.log('  →', r1.file);
+  const p1 = progressSeen.get(r1.id) || 0;
+  console.log(`  progress events: reached ${(p1 * 100).toFixed(0)}% while running`);
+  if (!(p1 > 0.2)) throw new Error('no progress events for export 1');
+
+  console.log('cancel: a queued export and a running one…');
+  const longClip = { name: 'Test Game Cancel', inMs: 0, outMs: 40000, label: null, anchors: [] };
+  const run1 = await start('/api/export', { videoPath, clip: longClip, assets: {}, meta: { ...meta, testRun: true } });
+  const run2 = await start('/api/export', { videoPath, clip: { ...longClip, name: 'Test Game Cancel 2' }, assets: {}, meta: { ...meta, testRun: true } });
+  const again = await start('/api/export', { videoPath, clip: longClip, assets: {}, meta: { ...meta, testRun: true } });
+  if (again.jobId !== run1.jobId) throw new Error('same output queued twice');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const getJob = async id => (await fetch(BASE + '/api/jobs/' + id)).json();
+  await fetch(BASE + '/api/jobs/' + run2.jobId, { method: 'DELETE' }); // still queued
+  while ((await getJob(run1.jobId)).status !== 'running') await sleep(100);
+  await sleep(800);
+  await fetch(BASE + '/api/jobs/' + run1.jobId, { method: 'DELETE' }); // mid-encode
+  for (const id of [run1.jobId, run2.jobId]) {
+    let j = await getJob(id);
+    while (j.status === 'running') { await sleep(100); j = await getJob(id); }
+    if (j.status !== 'cancelled') throw new Error(`${j.name}: expected cancelled, got ${j.status}`);
+  }
+  const leftovers = fs.readdirSync(path.join(__dirname, 'clips', '_test', 'YouTube')).filter(f => f.includes('Cancel'));
+  if (leftovers.length) throw new Error('cancelled export left files: ' + leftovers.join(', '));
+  console.log('  → both cancelled, no files left behind');
 
   console.log('export 2: plain cut, no overlays…');
   const r2 = await post('/api/export', {
@@ -129,5 +183,6 @@ async function post(url, body) {
     fs.unlinkSync(path.join(__dirname, 'clips', f));
   }
   fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true });
+  events.abort();
   console.log('ALL TESTS PASSED');
 })().catch(e => { console.error('TEST FAILED:', e.message); process.exit(1); });
