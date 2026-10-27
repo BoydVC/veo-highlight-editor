@@ -1,4 +1,4 @@
-/* Charlotte Clips — frontend. Sections:
+/* GameReels — frontend. Sections:
    state · utils · video loading · render loop · timeline · keyboard ·
    clips · labels · tracking · overlay art (badge/circle/label) · export · settings */
 'use strict';
@@ -23,9 +23,10 @@ const state = {
 };
 
 const DEFAULT_SETTINGS = {
-  name: 'CHARLOTTE', number: '7',
+  name: '', number: '',
   badgeColor: '#d92a6c', textColor: '#ffd400', circleColor: '#ffd400',
   badgeScale: 1, circleScale: 1, labelSeconds: 3,
+  // Shared plus lacrosse (Draw Win, Ground Ball, Dodge) and soccer (Dribble). Editable in Settings.
   labels: ['Goal', 'Assist', 'Shot', 'Draw Win', 'Ground Ball', 'Dodge', 'Dribble', 'Steal', 'Defense'],
 };
 let settings = loadSettings();
@@ -222,7 +223,7 @@ function drawCropGuide(ctx, r, clip) {
 
 // ---------- 9:16 crop offset drag -------------------------------------------------
 // In Reels mode, drag the video horizontally to shift the crop window off the tracked
-// player — for when the action is to her left/right. Stored per clip, normalized 0-1.
+// player — for when the action is to the player's left or right. Stored per clip, normalized 0-1.
 let cropDrag = null;
 wrap.addEventListener('pointerdown', e => {
   if (state.tracking || exportFormat() !== 'vertical') return;
@@ -396,10 +397,10 @@ function setSpeed(sp) {
   $('speed').value = String(sp);
   const i = state.speedSteps.indexOf(sp);
   if (i >= 0) state.speedIdx = i;
-  try { localStorage.setItem('cc-speed', String(sp)); } catch { /* storage unavailable */ }
+  try { localStorage.setItem('gr-speed', String(sp)); } catch { /* storage unavailable */ }
 }
 function restoreSpeed() {
-  try { const sp = parseFloat(localStorage.getItem('cc-speed')); if (sp) setSpeed(sp); } catch { /* ignore */ }
+  try { const sp = parseFloat(localStorage.getItem('gr-speed')); if (sp) setSpeed(sp); } catch { /* ignore */ }
 }
 $('speed').onchange = e => setSpeed(parseFloat(e.target.value));
 $('markIn').onclick = () => setIn();
@@ -410,9 +411,9 @@ $('videoSelect').onchange = e => { if (e.target.value) loadVideo(e.target.value)
 $('skipFrames').onchange = e => e.target.blur(); // keep arrow keys on the video, not the dropdown
 
 // export format: 16:9 (YouTube) or 9:16 follow-crop (Reels/Shorts/TikTok)
-$('exportFormat').value = localStorage.getItem('cc-format') || 'wide';
+$('exportFormat').value = localStorage.getItem('gr-format') || 'wide';
 $('exportFormat').onchange = e => {
-  localStorage.setItem('cc-format', e.target.value);
+  localStorage.setItem('gr-format', e.target.value);
   e.target.blur();
   drawOverlay();
   if (e.target.value === 'vertical') toast('9:16 mode — dashed guide shows the Reels crop (follows tracking) · drag the video to shift it left/right', false, 4500);
@@ -550,7 +551,7 @@ function renderClips() {
           <button data-act="dn" title="Move down in export order (Alt+↓)">▼</button>
           <button data-act="go" title="Jump to the clip start">Go</button>
           <button data-act="play" title="Play the clip with the overlay preview">Review</button>
-          <button data-act="track" title="Track her through this clip (T)">Track</button>
+          <button data-act="track" title="Track the player through this clip (T)">Track</button>
           <button data-act="export" title="Export this clip (E)">Export</button>
           <button data-act="del" title="Delete clip">✕</button>
       </div>
@@ -634,7 +635,7 @@ function enterTracking(clipId) {
   $('trackBanner').classList.remove('hidden');
   $('anchorCount').textContent = '0 anchors';
   renderClips();
-  toast('Tracking: click her feet — the video auto-advances after each click');
+  toast('Tracking: click the player\'s feet — the video auto-advances after each click');
 }
 
 function exitTracking(silent) {
@@ -702,10 +703,16 @@ function rebuildArt() {
   artCache = { key: artKey(), badge: renderBadge(), circle: renderCircle() };
 }
 
+function badgeText() {
+  const name = (settings.name || 'Player').trim();
+  const number = String(settings.number || '').trim().replace(/^#/, '');
+  return `${name}${number ? '  #' + number : ''}`.toUpperCase();
+}
+
 function renderBadge() {
   const H = state.vh;
   const fontPx = Math.round(H * 0.026 * settings.badgeScale);
-  const text = `${settings.name}${settings.number ? '  #' + settings.number : ''}`.toUpperCase();
+  const text = badgeText();
   const c = document.createElement('canvas');
   const ctx = c.getContext('2d');
   ctx.font = `800 ${fontPx}px "Segoe UI", Arial, sans-serif`;
@@ -837,8 +844,8 @@ $('builderBtn').onclick = async () => {
     const res = await fetch('/api/exports' + (TEST_RUN ? '?includeTest=1' : '')).then(r => r.json());
     builderItems = res.files.map(f => ({ ...f, checked: true }));
     if (!builderItems.length) return toast('No exported clips yet — export some first, then build a compilation', true, 4500);
-    if (!$('stitchName').value) $('stitchName').value = 'Charlotte Highlights';
-    $('transitionSel').value = localStorage.getItem('cc-transition') || '';
+    if (!$('stitchName').value) $('stitchName').value = 'Highlights';
+    $('transitionSel').value = localStorage.getItem('gr-transition') || '';
     renderBuilder();
     loadCardForms();
     updateCardPreviews();
@@ -880,9 +887,8 @@ function renderBuilder() {
 }
 
 // ---------- intro / outro cards ---------------------------------------------------
-// Styled after the Charlotte_Boyd_19_Highlights examples: dark base, magenta accent bar, gold letter-
-// spaced kicker, huge silver title, photo blended through a gradient (left panel
-// for 16:9, bottom panel for 9:16).
+// Highlight cards: dark base, magenta accent bar, gold letter-spaced kicker, huge silver
+// title, photo blended through a gradient (left panel for 16:9, bottom panel for 9:16).
 const cardImgs = { intro: null, outro: null }; // Image objects, not persisted
 const CARD_DEFAULTS = {
   intro: { kicker: 'GAME HIGHLIGHTS', title: '', sub: '', sub2: '', seconds: 3.5 },
@@ -902,10 +908,14 @@ function readCardForm(kind) {
 
 function loadCardForms() {
   let saved = {};
-  try { saved = JSON.parse(localStorage.getItem('cc-cards')) || {}; } catch {}
+  try { saved = JSON.parse(localStorage.getItem('gr-cards')) || {}; } catch {}
   for (const kind of ['intro', 'outro']) {
     const d = { ...CARD_DEFAULTS[kind], ...(saved[kind] || {}) };
-    if (!d.title) d.title = `${settings.name}${settings.number ? ' #' + settings.number : ''}`;
+    if (!d.title) {
+      const who = (settings.name || '').trim();
+      const num = String(settings.number || '').trim().replace(/^#/, '');
+      d.title = who ? `${who}${num ? ' #' + num : ''}` : 'Highlights';
+    }
     $(kind + 'On').checked = !!d.on;
     $(kind + 'Kicker').value = d.kicker;
     $(kind + 'Title').value = d.title;
@@ -917,7 +927,7 @@ function loadCardForms() {
 }
 
 function saveCardForms() {
-  localStorage.setItem('cc-cards', JSON.stringify({ intro: readCardForm('intro'), outro: readCardForm('outro') }));
+  localStorage.setItem('gr-cards', JSON.stringify({ intro: readCardForm('intro'), outro: readCardForm('outro') }));
 }
 
 // first checked clip decides the compilation's shape
@@ -1043,10 +1053,10 @@ $('doStitch').onclick = async e => {
   e.preventDefault();
   const files = builderItems.filter(f => f.checked).map(f => f.name);
   if (files.length < 2) return toast('Check at least two clips to stitch', true);
-  const name = $('stitchName').value.trim() || 'Charlotte Highlights';
+  const name = $('stitchName').value.trim() || 'Highlights';
   const dims = builderDims();
   const transition = $('transitionSel').value;
-  localStorage.setItem('cc-transition', transition);
+  localStorage.setItem('gr-transition', transition);
   const btn = $('doStitch');
   btn.disabled = true; btn.textContent = 'Stitching…';
   try {
@@ -1115,7 +1125,7 @@ document.addEventListener('keydown', e => {
 // ---------- settings ----------------------------------------------------------------
 function loadSettings() {
   try {
-    const s = JSON.parse(localStorage.getItem('cc-settings'));
+    const s = JSON.parse(localStorage.getItem('gr-settings'));
     return { ...DEFAULT_SETTINGS, ...s };
   } catch { return { ...DEFAULT_SETTINGS }; }
 }
@@ -1137,8 +1147,8 @@ $('settingsBtn').onclick = openSettings;
 
 function readSettingsForm() {
   return {
-    name: $('setName').value.trim() || 'PLAYER',
-    number: $('setNumber').value.trim(),
+    name: $('setName').value.trim(),
+    number: $('setNumber').value.trim().replace(/^#/, ''),
     badgeColor: $('setBadgeColor').value,
     textColor: $('setTextColor').value,
     circleColor: $('setCircleColor').value,
@@ -1161,7 +1171,7 @@ $('settingsDlg').addEventListener('input', drawBadgePreview);
 $('settingsDlg').addEventListener('close', () => {
   if ($('settingsDlg').returnValue === 'ok') {
     settings = readSettingsForm();
-    localStorage.setItem('cc-settings', JSON.stringify(settings));
+    localStorage.setItem('gr-settings', JSON.stringify(settings));
     artCache.key = null;
     renderLabelBar();
     drawOverlay();

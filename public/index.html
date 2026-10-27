@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Charlotte Clips</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥍</text></svg>">
+<title>GameReels</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header id="topbar">
-  <div class="brand"><span class="mark">🥍</span><strong>Charlotte Clips</strong></div>
+  <div class="brand"><span class="mark">🎬</span><strong>GameReels</strong></div>
+  <span class="sport-chip" title="Best for lacrosse and soccer Veo film — export Reels, Shorts, or 16:9">Best for Lacrosse &amp; Soccer</span>
   <select id="videoSelect" title="Choose a game file from the games/ folder"></select>
   <button id="refreshVideos" class="icon-btn" title="Rescan games folder">
     <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
@@ -31,7 +32,7 @@
       <video id="video" preload="auto"></video>
       <canvas id="overlay"></canvas>
       <div id="trackBanner" class="hidden">
-        <span class="dot"></span> TRACKING — click her feet · <b>→</b> skip · <b>U</b> undo ·
+        <span class="dot"></span> TRACKING — click the player's feet · <b>→</b> skip · <b>U</b> undo ·
         <b>Esc</b> done · <span id="anchorCount">0 anchors</span>
         <select id="skipFrames" title="Frames to advance after each click — 15 measures visually identical to 5 at a third of the clicks; 30 is fine on straight runs; use 10 for dodges/draws">
           <option value="5">+5 frames</option>
@@ -107,8 +108,8 @@
 <dialog id="settingsDlg">
   <h3>Badge &amp; Settings</h3>
   <form method="dialog">
-    <label>Player name <input id="setName" value="CHARLOTTE"></label>
-    <label>Number <input id="setNumber" value="7" size="3"></label>
+    <label>Player name <input id="setName" placeholder="Player" autocomplete="off"></label>
+    <label>Number <input id="setNumber" placeholder="#00" size="4" autocomplete="off"></label>
     <label>Badge color <input id="setBadgeColor" type="color" value="#d92a6c"></label>
     <label>Badge text <input id="setTextColor" type="color" value="#ffd400"></label>
     <label>Circle color <input id="setCircleColor" type="color" value="#ffd400"></label>
@@ -117,6 +118,7 @@
     <label>Circle size <input id="setCircleScale" type="range" min="0.5" max="2.5" step="0.05" value="1"></label>
     <label>Label banner seconds <input id="setLabelSecs" type="number" min="1" max="10" step="0.5" value="3" size="4"></label>
     <label class="wide">Labels (comma separated, order = hotkeys 1–9)
+      <span class="meta">Defaults cover lacrosse and soccer. Edit them if you need another sport.</span>
       <input id="setLabels" value="Goal, Assist, Shot, Draw Win, Ground Ball, Dodge, Dribble, Steal, Defense">
     </label>
     <div class="preview"><canvas id="badgePreview" width="420" height="150"></canvas></div>

@@ -1,16 +1,16 @@
-# Charlotte Clips — Sports Highlight Editor (Plan)
+# GameReels — Sports Highlight Editor (Plan)
 
-A personal, local web app for turning full-game Veo film (lacrosse / soccer) into labeled,
-player-tracked highlight clips — fast, with keyboard-first workflow and none of the
-learning curve of a full NLE.
+A personal, local web app for turning full-game Veo film into social clips (Reels, YouTube Shorts,
+and 16:9). **Best for lacrosse and soccer.** Labeled, player-tracked highlight clips — fast, with a
+keyboard-first workflow and none of the learning curve of a full NLE.
 
 ## The core workflow it's built around
 
 1. **Scan** the full game with fast playback + big jumps (keyboard only).
 2. When you spot a play: mark **In** (`I`), mark **Out** (`O`), press **`C`** → clip created and auto-named.
 3. Tap a number key (`1`–`9`) to slap a **label** on it (Goal / Assist / Draw Win / …).
-4. (Optional, anytime later) press **`T`** to **track Charlotte** through the clip:
-   click her feet → the video auto-advances N frames → click again. One click per anchor.
+4. (Optional, anytime later) press **`T`** to **track the player** through the clip:
+   click their feet → the video auto-advances N frames → click again. One click per anchor.
 5. **Export** the clip (or all clips) — the label banner, name/number badge, and foot circle
    are burned in by ffmpeg. **Stitch** exports into one compilation file when done.
 
@@ -71,7 +71,8 @@ players. Conclusion: the spline is already the right tool — **15 frames defaul
 detector attempt.)
 
 ### Burned-in overlays at export
-The browser renders the badge ("CHARLOTTE #7"), foot ellipse, and label banner as PNGs
+The browser renders the badge (player name and number — blank until you set them; the overlay
+falls back to "PLAYER"), foot ellipse, and label banner as PNGs
 (exactly matching the on-screen preview) and posts them with the clip. The server computes
 per-frame x/y from the spline and feeds ffmpeg a `sendcmd` script driving two `overlay`
 filters — buttery motion, no per-frame image sequence needed. The label banner overlays

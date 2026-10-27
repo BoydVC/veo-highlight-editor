@@ -1,7 +1,7 @@
 {
-  "name": "charlotte-clips",
+  "name": "game-reels",
   "version": "1.0.0",
-  "description": "Personal sports highlight clip editor for Veo game film (lacrosse/soccer)",
+  "description": "Turn full-game Veo film into social clips (Reels, Shorts, 16:9). Best for lacrosse and soccer.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
