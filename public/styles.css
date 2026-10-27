@@ -172,6 +172,33 @@ main { flex: 1; display: flex; min-height: 0; }
 #labelBar button kbd { margin: 0; }
 #labelBar button .k { display: none; }
 
+/* Caption presets — Hold previews sample copy; Apply stores it. Export is separate. */
+#captionBar {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 8px;
+  padding: 8px 10px; background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.caption-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.caption-title { font-weight: 700; font-size: 12px; letter-spacing: .02em; text-transform: uppercase; color: var(--text-2); }
+.example-flag {
+  flex: none; border-radius: 999px; padding: 2px 8px;
+  font-weight: 800; font-size: 10px; letter-spacing: .08em;
+  color: #1a1400; background: var(--gold); border: 1px solid #ffe56a;
+}
+#captionSports, #captionPresets { display: flex; gap: 4px; flex-wrap: wrap; }
+#captionSports button, #captionPresets button { font-size: 12px; padding: 4px 8px; }
+#captionSports button.on, #captionPresets button.on {
+  border-color: var(--accent); background: var(--accent-soft); color: var(--text); font-weight: 700;
+}
+#applyCaption { min-width: 72px; }
+#applyCaption:disabled { opacity: .55; cursor: default; transform: none; }
+#captionStatus, #captionPreview { margin: 0; }
+.caption-preview { font-size: 12.5px; line-height: 1.45; color: var(--text); }
+.clip .caption-chip {
+  background: var(--gold); color: #1a1400; border-radius: 999px; padding: 1px 8px;
+  font-weight: 800; font-size: 10px; letter-spacing: .04em;
+}
+
 #cheats { color: var(--text-3); font-size: 12px; margin-top: 4px; }
 #cheats summary { cursor: pointer; user-select: none; }
 #cheats summary:hover { color: var(--text-2); }
@@ -243,6 +270,23 @@ dialog input { color: var(--text); background: var(--surface-2); cursor: text; }
 dialog input[type=color] { padding: 2px; width: 44px; height: 30px; cursor: pointer; }
 dialog .preview { width: 100%; background: #234a2c; border-radius: var(--radius); display: flex; justify-content: center; }
 dialog menu { width: 100%; display: flex; justify-content: flex-end; gap: 8px; margin: 10px 0 0; padding: 12px 0 0; border-top: 1px solid var(--border); }
+
+#shareDlg { min-width: 520px; max-width: 640px; }
+#shareDlg .meta { margin: 0 0 8px; }
+.share-caption {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  width: 100%; padding: 10px 12px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+#shareCaptionText { margin: 0; white-space: pre-wrap; line-height: 1.45; }
+.share-intent {
+  width: 100%; margin-top: 10px; padding: 10px 12px;
+  border: 1px dashed var(--border-strong); border-radius: var(--radius); background: var(--surface-2);
+}
+.share-intent strong { display: block; margin-bottom: 4px; }
+.share-intent p, .share-intent ul { margin: 4px 0 0; }
+.share-intent li { margin: 2px 0; }
+#shareDlg menu { margin-top: 12px; }
 
 #builderDlg { min-width: 640px; max-width: 80vw; max-height: 92vh; overflow-y: auto; }
 #builderDlg .meta { width: 100%; margin: 0 0 8px; }
