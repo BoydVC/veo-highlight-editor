@@ -1,5 +1,7 @@
 # 🎬 GameReels
 
+![GameReels](screenshots/00-best-home.png)
+
 Turn full-game Veo film into social clips — Reels, YouTube Shorts, and 16:9. **Best for lacrosse and soccer.**
 Keyboard-first clipping, hotkey labels, click-to-track player badge overlays, one-button export and stitching.
 See `PLAN.md` for the design.
