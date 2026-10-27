@@ -73,6 +73,17 @@ async function post(url, body) {
   });
   console.log('  →', r3.file);
 
+  console.log('export 4: square 1:1 with tracking follow-crop…');
+  const rSq = await post('/api/export', {
+    videoPath,
+    clip: { name: 'Test Game 04 Goal', inMs: 5000, outMs: 8000, label: 'Goal', anchors },
+    assets: { badgePng, circlePng, labelPng }, meta: { testRun: true, ...meta, format: 'square' },
+  });
+  console.log('  →', rSq.file);
+  if (!rSq.file.includes('Square/') || !rSq.file.includes('[1x1]')) {
+    throw new Error('square export path: ' + rSq.file);
+  }
+
   console.log('stitch (uniform 16:9, lossless copy)…');
   const r4 = await post('/api/stitch', { testRun: true, files: [r1.file, r2.file], outName: 'Test Compilation' });
   console.log('  →', r4.file);
@@ -117,6 +128,8 @@ async function post(url, body) {
 
   const v = list.files.find(f => f.name === r3.file);
   if (!v || v.width !== 1080 || v.height !== 1920) throw new Error('vertical export is not 1080x1920');
+  const sq = list.files.find(f => f.name === rSq.file);
+  if (!sq || sq.width !== 1080 || sq.height !== 1080) throw new Error('square export is not 1080x1080: ' + JSON.stringify(sq));
 
   for (const f of [r1.file, r2.file, r4.file]) {
     const out = execFileSync(ffprobe, ['-v', 'error', '-show_entries',
@@ -125,7 +138,7 @@ async function post(url, body) {
   }
   ['_badge.png', '_circle.png', '_label.png', '_card.png'].forEach(f => fs.unlinkSync(path.join(__dirname, f)));
   // tidy: remove test outputs so they don't clutter the Compilation Builder
-  for (const f of [r1, r2, r3, r4, r5, r6, r7, r8].map(r => r.file)) {
+  for (const f of [r1, r2, r3, rSq, r4, r5, r6, r7, r8].map(r => r.file)) {
     fs.unlinkSync(path.join(__dirname, 'clips', f));
   }
   fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true });

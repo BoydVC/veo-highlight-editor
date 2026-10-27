@@ -165,8 +165,9 @@ function drawOverlay() {
     ? state.clips.find(c => c.id === state.tracking.clipId)
     : state.clips.find(c => c.id === state.selectedId);
 
-  wrap.classList.toggle('cropAdj', exportFormat() === 'vertical' && !!clip && !state.tracking);
-  if (exportFormat() === 'vertical') drawCropGuide(ctx, r, clip);
+  const preview = heldPreset();
+  wrap.classList.toggle('cropAdj', preview.crop && !!clip && !state.tracking);
+  if (preview.crop) drawCropGuide(ctx, r, clip);
   if (!clip || !clip.anchors || !clip.anchors.length) return;
 
   const tMs = video.currentTime * 1000;
@@ -197,36 +198,51 @@ function drawOverlay() {
   }
 }
 
-// dashed window showing what survives the 9:16 Reels crop (export smooths the
-// pan with a camera filter; this guide follows the raw spline — close enough)
+// Dashed window for the held 9:16 or 1:1 preset. Export smooths the pan with a
+// camera filter; this guide follows the raw spline — close enough to judge the crop.
+// While the hold is unapplied the label says "preview". Nothing is written or posted.
 function drawCropGuide(ctx, r, clip) {
-  const cw = (state.vh * 9 / 16) * (r.w / state.vw);
+  const preset = heldPreset();
+  const geom = GameReelsPresets.cropWindow(preset.id, state.vw, state.vh);
+  if (!geom || !state.vw) return;
+  const scale = r.w / state.vw;
+  const cw = geom.cropW * scale;
+  const ch = geom.cropH * scale;
   let centerX = r.x + r.w / 2;
+  let centerY = r.y + r.h / 2;
   if (clip && clip.anchors && clip.anchors.length) {
     const a = clip.anchors;
     const tMs = clamp(video.currentTime * 1000, a[0].t, a[a.length - 1].t);
-    centerX = r.x + splineAt(a, tMs).x * r.w;
+    const pos = splineAt(a, tMs);
+    centerX = r.x + pos.x * r.w;
+    centerY = r.y + pos.y * r.h;
   }
-  if (clip && clip.cropOffset) centerX += clip.cropOffset * r.w; // user-dragged shift off the tracked player
+  if (clip && clip.cropOffset) centerX += clip.cropOffset * r.w;
   const left = clamp(centerX - cw / 2, r.x, r.x + r.w - cw);
+  const top = clamp(centerY - ch / 2, r.y, r.y + r.h - ch);
   ctx.fillStyle = 'rgba(0,0,0,.45)';
-  ctx.fillRect(r.x, r.y, left - r.x, r.h);
-  ctx.fillRect(left + cw, r.y, r.x + r.w - left - cw, r.h);
-  ctx.strokeStyle = 'rgba(255,255,255,.65)';
+  ctx.fillRect(r.x, r.y, r.w, Math.max(0, top - r.y));
+  ctx.fillRect(r.x, top + ch, r.w, Math.max(0, r.y + r.h - (top + ch)));
+  ctx.fillRect(r.x, top, Math.max(0, left - r.x), ch);
+  ctx.fillRect(left + cw, top, Math.max(0, r.x + r.w - (left + cw)), ch);
+  ctx.strokeStyle = 'rgba(255,255,255,.7)';
+  ctx.lineWidth = 1.5;
   ctx.setLineDash([7, 5]);
-  ctx.strokeRect(left, r.y + 1, cw, r.h - 2);
+  ctx.strokeRect(left + 1, top + 1, Math.max(0, cw - 2), Math.max(0, ch - 2));
   ctx.setLineDash([]);
-  ctx.fillStyle = 'rgba(255,255,255,.75)';
-  ctx.font = '11px "Segoe UI", sans-serif';
-  ctx.fillText('9:16', left + 6, r.y + 16);
+  const pending = presetSession.snapshot().pending;
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.font = '600 12px "Segoe UI", sans-serif';
+  ctx.fillText(pending ? preset.ratio + ' preview' : preset.ratio, left + 8, top + 18);
 }
 
-// ---------- 9:16 crop offset drag -------------------------------------------------
-// In Reels mode, drag the video horizontally to shift the crop window off the tracked
-// player — for when the action is to the player's left or right. Stored per clip, normalized 0-1.
+// ---------- crop offset drag ------------------------------------------------------
+// While a 9:16 or 1:1 preset is held, drag the video horizontally to shift the crop
+// window off the tracked player. Stored per clip, normalized 0-1. Drag only edits
+// the local project — it does not export or post.
 let cropDrag = null;
 wrap.addEventListener('pointerdown', e => {
-  if (state.tracking || exportFormat() !== 'vertical') return;
+  if (state.tracking || !heldPreset().crop) return;
   const c = selected();
   if (!c) return;
   const r = videoRect();
@@ -244,13 +260,13 @@ wrap.addEventListener('pointerup', () => {
   if (!cropDrag) return;
   if (cropDrag.moved) {
     const px = Math.round((cropDrag.clip.cropOffset || 0) * state.vw);
-    toast(`9:16 crop shifted ${px > 0 ? '+' : ''}${px}px — double-click video to recenter`, false, 2500);
+    toast(`${heldPreset().ratio} crop shifted ${px > 0 ? '+' : ''}${px}px — double-click video to recenter`, false, 2500);
     saveProject();
   }
   cropDrag = null;
 });
 wrap.addEventListener('dblclick', () => {
-  if (state.tracking || exportFormat() !== 'vertical') return;
+  if (state.tracking || !heldPreset().crop) return;
   const c = selected();
   if (c && c.cropOffset) { c.cropOffset = 0; saveProject(); drawOverlay(); toast('Crop recentered on the tracked player'); }
 });
@@ -410,15 +426,74 @@ $('refreshVideos').onclick = refreshVideos;
 $('videoSelect').onchange = e => { if (e.target.value) loadVideo(e.target.value); };
 $('skipFrames').onchange = e => e.target.blur(); // keep arrow keys on the video, not the dropdown
 
-// export format: 16:9 (YouTube) or 9:16 follow-crop (Reels/Shorts/TikTok)
-$('exportFormat').value = localStorage.getItem('gr-format') || 'wide';
-$('exportFormat').onchange = e => {
-  localStorage.setItem('gr-format', e.target.value);
-  e.target.blur();
+// Social presets. Hold previews a crop. Apply stores that shape for the next
+// explicit Export. Neither Hold nor Apply writes a file or posts anywhere.
+let savedFormat = 'wide';
+try { savedFormat = localStorage.getItem('gr-format') || 'wide'; } catch { /* ignore */ }
+const presetSession = GameReelsPresets.createPresetSession(savedFormat);
+const exportFormat = () => presetSession.exportFormat();
+const heldPreset = () => GameReelsPresets.presetById(presetSession.snapshot().held);
+
+function syncPresetUI() {
+  const snap = presetSession.snapshot();
+  document.querySelectorAll('#presetChoices [data-preset]').forEach(btn => {
+    const id = btn.dataset.preset;
+    const held = id === snap.held;
+    btn.classList.toggle('held', held);
+    btn.classList.toggle('is-applied', id === snap.applied);
+    btn.setAttribute('aria-checked', held ? 'true' : 'false');
+  });
+  const held = GameReelsPresets.presetById(snap.held);
+  const applied = GameReelsPresets.presetById(snap.applied);
+  const applyBtn = $('applyPreset');
+  applyBtn.disabled = !snap.pending;
+  applyBtn.classList.toggle('accent', snap.pending);
+  applyBtn.textContent = snap.pending ? 'Apply' : 'Applied';
+  $('presetStatus').textContent = snap.pending
+    ? `Holding ${held.ratio} ${held.label} (${held.posting}). Preview only — Apply to use it on the next export. Nothing is posted.`
+    : `${applied.ratio} ${applied.label} is applied for export (${applied.posting}). Files stay on this PC. Nothing is posted.`;
+}
+
+function renderPresetButtons() {
+  const box = $('presetChoices');
+  box.innerHTML = '';
+  for (const p of GameReelsPresets.PRESETS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'preset';
+    btn.dataset.preset = p.id;
+    btn.setAttribute('role', 'radio');
+    btn.title = `${p.hint}. Hold previews this crop. Apply commits it for export. Nothing is posted.`;
+    btn.setAttribute('aria-label', `${p.ratio} ${p.label}, ${p.posting}. Hold to preview.`);
+    btn.innerHTML =
+      `<span class="glyph g-${p.id}" aria-hidden="true"></span>` +
+      `<span class="preset-text">` +
+        `<span class="preset-name">${p.ratio} ${p.label}</span>` +
+        `<span class="preset-where">${p.posting}</span>` +
+      `</span>`;
+    btn.onclick = () => {
+      presetSession.hold(p.id);
+      syncPresetUI();
+      drawOverlay();
+      btn.blur();
+      if (p.crop) toast(`${p.ratio} ${p.label} is on hold — dashed guide is a preview. Apply before export. Nothing is posted.`, false, 4000);
+    };
+    box.appendChild(btn);
+  }
+}
+
+$('applyPreset').onclick = () => {
+  const snap = presetSession.apply();
+  try { localStorage.setItem('gr-format', snap.applied); } catch { /* ignore */ }
+  syncPresetUI();
   drawOverlay();
-  if (e.target.value === 'vertical') toast('9:16 mode — dashed guide shows the Reels crop (follows tracking) · drag the video to shift it left/right', false, 4500);
+  $('applyPreset').blur();
+  const p = GameReelsPresets.presetById(snap.applied);
+  toast(`Applied ${p.ratio} ${p.label}. Export writes a file on this PC — nothing is posted.`, false, 3500);
 };
-const exportFormat = () => $('exportFormat').value;
+
+renderPresetButtons();
+syncPresetUI();
 
 function setIn() {
   state.inMs = Math.round(video.currentTime * 1000);
@@ -799,11 +874,19 @@ async function exportClip(c) {
       assets.circlePng = getCircleCanvas().toDataURL('image/png');
       assets.badgePng = getBadgeCanvas().toDataURL('image/png');
     }
+    const snap = presetSession.snapshot();
     const fmt = exportFormat();
+    if (snap.pending) {
+      const held = GameReelsPresets.presetById(snap.held);
+      const applied = GameReelsPresets.presetById(fmt);
+      toast(`Exporting applied ${applied.ratio} ${applied.label}. ${held.ratio} ${held.label} is still a preview — Apply it before exporting that shape. Nothing is posted.`, false, 5000);
+    }
     if (c.label) {
-      assets.labelPng = (fmt === 'vertical'
-        ? renderLabelBanner(c.label, 1920, 1000)
-        : renderLabelBanner(c.label)).toDataURL('image/png');
+      const preset = GameReelsPresets.presetById(fmt);
+      const banner = preset.outH
+        ? renderLabelBanner(c.label, preset.outH, preset.id === 'vertical' ? 1000 : Math.round(preset.outW * 0.92))
+        : renderLabelBanner(c.label);
+      assets.labelPng = banner.toDataURL('image/png');
     }
     const res = await fetch('/api/export', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -859,13 +942,14 @@ function renderBuilder() {
   const list = $('builderList');
   list.innerHTML = '';
   builderItems.forEach((f, i) => {
-    const vertical = f.height > f.width;
+    const shape = GameReelsPresets.shapeOf(f.width, f.height);
+    const chipCls = shape === '9:16' ? 'v916' : shape === '1:1' ? 'sq11' : '';
     const row = document.createElement('div');
     row.className = 'brow' + (f.checked ? '' : ' off');
     row.innerHTML = `
       <input type="checkbox" ${f.checked ? 'checked' : ''}>
       <span class="bname">${escapeHtml(f.name)}</span>
-      <span class="chip ${vertical ? 'v916' : ''}">${vertical ? '9:16' : '16:9'}</span>
+      <span class="chip ${chipCls}">${shape}</span>
       <span class="bdur">${f.duration ? f.duration.toFixed(1) + 's' : ''}</span>
       <button data-mv="-1" title="move up">▲</button>
       <button data-mv="1" title="move down">▼</button>`;
@@ -879,10 +963,9 @@ function renderBuilder() {
     list.appendChild(row);
   });
   const picked = builderItems.filter(f => f.checked);
-  const hasWide = picked.some(f => f.width >= f.height);
-  const hasTall = picked.some(f => f.height > f.width);
-  $('builderWarn').textContent = hasWide && hasTall
-    ? '⚠ Mixed 16:9 and 9:16 clips selected — the output will pad everything to the first clip’s shape. Usually you want one format per compilation.'
+  const shapes = [...new Set(picked.map(f => GameReelsPresets.shapeOf(f.width, f.height)))];
+  $('builderWarn').textContent = shapes.length > 1
+    ? `⚠ Mixed ${shapes.join(' and ')} clips selected — the output will pad everything to the first clip’s shape. Usually you want one preset per compilation.`
     : '';
 }
 

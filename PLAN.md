@@ -115,15 +115,17 @@ projects/          autosaved sidecar project JSON per video
 clips/             exported clips + stitched compilations
 ```
 
-### Output formats (added after v1)
-Two export formats, selectable in the top bar. **16:9** keeps the full 1920×1080 Veo frame
-(YouTube's recommended spec). **9:16** produces 1080×1920 for Instagram Reels / YouTube
-Shorts / TikTok by cropping a vertical window that *auto-follows the tracked player* —
-the per-frame crop x comes from the same spline as the badge, smoothed with a
-forward+backward exponential filter so it pans like a camera operator instead of jittering.
-The **Compilation Builder** lists every exported clip across all games with format chips,
-supports re-ordering, stitches same-format clips losslessly (`-c copy`) and falls back to a
-re-encode with padding when formats are mixed.
+### Output formats
+Three social presets on the **Social presets** bar. **Hold** previews a crop (dashed guide);
+**Apply** commits that shape for the next explicit export. Hold and Apply do not write a file
+or post anywhere. **16:9 Landscape** keeps the full Veo frame for YouTube. **9:16 Vertical**
+produces 1080×1920 for Reels, Shorts, and TikTok. **1:1 Square** produces 1080×1080 for
+Instagram and Facebook feed posts. Cropped presets auto-follow the tracked player — the
+per-frame crop comes from the same spline as the badge, smoothed with a forward+backward
+exponential filter so it pans like a camera operator instead of jittering.
+The **Compilation Builder** lists every exported clip across all games with shape chips
+(16:9, 9:16, 1:1), supports re-ordering, stitches same-shape clips losslessly (`-c copy`)
+and falls back to a re-encode with padding when shapes are mixed.
 
 ### Scan-assist experiments (Sept 2026) — all negative, don't repeat
 Goal: a ranked list of candidate moments so scanning a 40–50 min game means jumping

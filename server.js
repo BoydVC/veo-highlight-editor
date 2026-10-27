@@ -5,6 +5,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const ffprobePath = require('ffprobe-static').path;
 const { exportClip, stitchClips, probeMeta } = require('./lib/exporter');
+const { presetById } = require('./lib/presets');
 
 const ROOT = __dirname;
 const GAMES_DIR = path.join(ROOT, 'games');
@@ -34,6 +35,12 @@ app.use(express.json({ limit: '80mb' })); // overlay PNGs ride along with export
 app.use(express.static(path.join(ROOT, 'public'), {
   setHeaders: res => res.setHeader('Cache-Control', 'no-cache'),
 }));
+// Shared preset table (Hold/Apply in the browser, crop math on export).
+app.get('/presets.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.type('application/javascript');
+  res.sendFile(path.join(ROOT, 'lib', 'presets.js'));
+});
 
 // ---- video library -------------------------------------------------------
 app.get('/api/videos', (req, res) => {
@@ -158,9 +165,11 @@ app.post('/api/export', async (req, res) => {
     const { clip, assets, meta } = req.body;
     const videoPath = gamePath(req.body.videoPath);
     if (!videoPath) throw new Error('game video not found in games folder');
-    const vertical = meta && meta.format === 'vertical';
-    const suffix = vertical ? ' [9x16]' : '';
-    const subdir = (meta && meta.testRun ? '_test/' : '') + (vertical ? 'Reels' : 'YouTube');
+    // Local file only. The preset was chosen with Apply in the UI; this route
+    // does not post, share, or generate frames that were not in the game video.
+    const preset = presetById((meta && meta.format) || 'wide');
+    const suffix = preset.suffix;
+    const subdir = (meta && meta.testRun ? '_test/' : '') + preset.folder;
     fs.mkdirSync(path.join(CLIPS_DIR, subdir), { recursive: true });
     const outPath = path.join(CLIPS_DIR, subdir, safeName(clip.name) + suffix + '.mp4');
     await exportClip({ videoPath, outPath, clip, assets, meta });
@@ -174,7 +183,7 @@ app.post('/api/export', async (req, res) => {
 // exported clip list with probed metadata (cached by name+mtime) — feeds the
 // compilation builder so it can show formats and warn about mixing them
 const probeCache = new Map();
-// every .mp4 in clips/ plus one level of subfolders (YouTube/, Reels/), as
+// every .mp4 in clips/ plus one level of subfolders (YouTube/, Reels/, Square/), as
 // CLIPS_DIR-relative names like "Reels/Goal [9x16].mp4". The test suite writes
 // under _test/ (one level deeper); that tree is skipped unless includeTest is set.
 function listExportNames(includeTest) {
