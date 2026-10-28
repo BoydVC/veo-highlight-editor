@@ -22,8 +22,15 @@ if (!fs.existsSync(testGame)) {
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 
+  // settings saved under the pre-rename cc-* key must carry over to gr-*
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('gr-settings')) localStorage.setItem('cc-settings', JSON.stringify({ name: 'OLDNAME', number: '7' }));
+  });
   await page.goto('http://localhost:4242/?testRun=1');
   await page.waitForSelector('#videoSelect option:nth-child(2)', { state: 'attached' });
+  const carried = await page.evaluate(() => JSON.parse(localStorage.getItem('gr-settings') || '{}').name);
+  if (carried !== 'OLDNAME') throw new Error('old cc-settings were not carried over: ' + carried);
+  console.log('old settings carried over:', carried);
 
   // load the test game (by name — never a real game file)
   await page.evaluate(() => {

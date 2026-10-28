@@ -8,6 +8,16 @@ export const timeline = $('timeline');
 // The Playwright UI test opens the app with ?testRun=1 so its exports land in clips/_test/
 export const TEST_RUN = new URLSearchParams(location.search).has('testRun');
 
+// The Charlotte Clips → GameReels rename moved the saved browser settings from cc-* to
+// gr-* keys. Copy the old ones over once (this module loads before anything reads them),
+// so a PC that already used the app keeps its badge, labels, cards, speed and format.
+for (const k of ['settings', 'cards', 'speed', 'format', 'transition']) {
+  try {
+    const old = localStorage.getItem('cc-' + k);
+    if (old !== null && localStorage.getItem('gr-' + k) === null) localStorage.setItem('gr-' + k, old);
+  } catch { /* storage unavailable */ }
+}
+
 export const state = {
   videoPath: null, videoName: null,
   fps: 30, duration: 0, vw: 1920, vh: 1080,
