@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const ffprobePath = require('ffprobe-static').path;
 const { exportClip, stitchClips, probeMeta, encoderName } = require('./lib/exporter');
 const jobs = require('./lib/jobs');
+const presetsReady = import('./public/js/presets.js'); // export formats, shared with the browser
 
 const ROOT = __dirname;
 const GAMES_DIR = path.join(ROOT, 'games');
@@ -157,16 +158,16 @@ function safeName(s) {
 const clipsRel = full => path.relative(CLIPS_DIR, full).split(path.sep).join('/');
 
 // both return { jobId, file } right away; progress and the result arrive on /api/jobs/events
-app.post('/api/export', (req, res) => {
+app.post('/api/export', async (req, res) => {
   try {
     const { clip, assets, meta, ref } = req.body;
     const videoPath = gamePath(req.body.videoPath);
     if (!videoPath) throw new Error('game video not found in games folder');
-    const vertical = meta && meta.format === 'vertical';
-    const suffix = vertical ? ' [9x16]' : '';
-    const subdir = (meta && meta.testRun ? '_test/' : '') + (vertical ? 'Reels' : 'YouTube');
+    // folder + filename suffix per format: YouTube/, Reels/ " [9x16]", Square/ " [1x1]"
+    const preset = (await presetsReady).presetById(meta && meta.format);
+    const subdir = (meta && meta.testRun ? '_test/' : '') + preset.folder;
     fs.mkdirSync(path.join(CLIPS_DIR, subdir), { recursive: true });
-    const outPath = path.join(CLIPS_DIR, subdir, safeName(clip.name) + suffix + '.mp4');
+    const outPath = path.join(CLIPS_DIR, subdir, safeName(clip.name) + preset.suffix + '.mp4');
     const job = jobs.enqueue({
       type: 'export', name: clip.name, file: clipsRel(outPath), outPath, ref,
       run: o => exportClip({ videoPath, clip, assets, meta, ...o }),
@@ -189,7 +190,7 @@ app.delete('/api/jobs/:id', (req, res) => {
 // exported clip list with probed metadata (cached by name+mtime) — feeds the
 // compilation builder so it can show formats and warn about mixing them
 const probeCache = new Map();
-// every .mp4 in clips/ plus one level of subfolders (YouTube/, Reels/), as
+// every .mp4 in clips/ plus one level of subfolders (YouTube/, Reels/, Square/), as
 // CLIPS_DIR-relative names like "Reels/Goal [9x16].mp4". The test suite writes
 // under _test/ (one level deeper); that tree is skipped unless includeTest is set.
 function listExportNames(includeTest) {

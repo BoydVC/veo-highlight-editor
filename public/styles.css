@@ -120,7 +120,7 @@ main { flex: 1; display: flex; min-height: 0; }
 #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #videoWrap.tracking #overlay { pointer-events: auto; cursor: crosshair; }
 #videoWrap.tracking { border-color: var(--accent); }
-#videoWrap.cropAdj { cursor: ew-resize; } /* 9:16 mode: drag to shift the crop window */
+#videoWrap.cropAdj { cursor: ew-resize; } /* 9:16 / 1:1: drag to shift the crop window */
 
 #trackBanner {
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
@@ -284,6 +284,7 @@ dialog menu { width: 100%; display: flex; justify-content: flex-end; gap: 8px; m
 .brow .bname { flex: 1; word-break: break-all; }
 .brow .chip { border-radius: 999px; padding: 0 7px; font-weight: 700; font-size: 10px; background: var(--surface-3); color: var(--text-2); }
 .brow .chip.v916 { background: var(--accent); color: #fff; }
+.brow .chip.sq11 { background: var(--gold); color: #1a1400; }
 .brow .bdur { color: var(--text-3); min-width: 48px; text-align: right; font-family: var(--mono); }
 .brow button { padding: 1px 7px; font-size: 11px; }
 .builder-controls { display: flex; gap: 8px; width: 100%; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }

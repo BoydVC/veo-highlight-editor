@@ -1,7 +1,8 @@
-// Video player: render loop, overlay preview, 9:16 crop drag, transport and in/out marks.
+// Video player: render loop, overlay preview, 9:16 / 1:1 crop drag, transport and in/out marks.
 import { getBadgeCanvas, getCircleCanvas } from './art.js';
 import { createClip, selected } from './clips.js';
 import { $, video, overlay, wrap, state, clamp, fmtTime, toast, videoRect } from './core.js';
+import { presetById, cropWindow } from './presets.js';
 import { refreshVideos, loadVideo, saveProject } from './project.js';
 import { splineAt } from './spline.js';
 import { drawTimeline } from './timeline.js';
@@ -39,8 +40,9 @@ export function drawOverlay() {
     ? state.clips.find(c => c.id === state.tracking.clipId)
     : state.clips.find(c => c.id === state.selectedId);
 
-  wrap.classList.toggle('cropAdj', exportFormat() === 'vertical' && !!clip && !state.tracking);
-  if (exportFormat() === 'vertical') drawCropGuide(ctx, r, clip);
+  const cropping = exportPreset().crop;
+  wrap.classList.toggle('cropAdj', cropping && !!clip && !state.tracking);
+  if (cropping) drawCropGuide(ctx, r, clip);
   if (!clip || !clip.anchors || !clip.anchors.length) return;
 
   const tMs = video.currentTime * 1000;
@@ -71,36 +73,44 @@ export function drawOverlay() {
   }
 }
 
-// dashed window showing what survives the 9:16 Reels crop (export smooths the
+// dashed window showing what survives the 9:16 / 1:1 crop (export smooths the
 // pan with a camera filter; this guide follows the raw spline — close enough)
 export function drawCropGuide(ctx, r, clip) {
-  const cw = (state.vh * 9 / 16) * (r.w / state.vw);
-  let centerX = r.x + r.w / 2;
+  const p = exportPreset();
+  const win = cropWindow(p.id, state.vw, state.vh);
+  const s = r.w / state.vw;
+  const cw = win.cropW * s, ch = win.cropH * s;
+  let centerX = r.x + r.w / 2, centerY = r.y + r.h / 2;
   if (clip && clip.anchors && clip.anchors.length) {
     const a = clip.anchors;
     const tMs = clamp(video.currentTime * 1000, a[0].t, a[a.length - 1].t);
-    centerX = r.x + splineAt(a, tMs).x * r.w;
+    const pos = splineAt(a, tMs);
+    centerX = r.x + pos.x * r.w;
+    centerY = r.y + pos.y * r.h;
   }
   if (clip && clip.cropOffset) centerX += clip.cropOffset * r.w; // user-dragged shift off the tracked player
   const left = clamp(centerX - cw / 2, r.x, r.x + r.w - cw);
+  const top = clamp(centerY - ch / 2, r.y, r.y + r.h - ch); // only moves when the crop is shorter than the frame
   ctx.fillStyle = 'rgba(0,0,0,.45)';
-  ctx.fillRect(r.x, r.y, left - r.x, r.h);
-  ctx.fillRect(left + cw, r.y, r.x + r.w - left - cw, r.h);
+  ctx.fillRect(r.x, r.y, r.w, top - r.y);                         // above
+  ctx.fillRect(r.x, top + ch, r.w, r.y + r.h - top - ch);          // below
+  ctx.fillRect(r.x, top, left - r.x, ch);                          // left
+  ctx.fillRect(left + cw, top, r.x + r.w - left - cw, ch);         // right
   ctx.strokeStyle = 'rgba(255,255,255,.65)';
   ctx.setLineDash([7, 5]);
-  ctx.strokeRect(left, r.y + 1, cw, r.h - 2);
+  ctx.strokeRect(left, top + 1, cw, ch - 2);
   ctx.setLineDash([]);
   ctx.fillStyle = 'rgba(255,255,255,.75)';
   ctx.font = '11px "Segoe UI", sans-serif';
-  ctx.fillText('9:16', left + 6, r.y + 16);
+  ctx.fillText(p.ratio, left + 6, top + 16);
 }
 
-// ---------- 9:16 crop offset drag -------------------------------------------------
-// In Reels mode, drag the video horizontally to shift the crop window off the tracked
+// ---------- 9:16 / 1:1 crop offset drag ---------------------------------------------
+// In a cropping format, drag the video horizontally to shift the crop window off the tracked
 // player — for when the action is to the player's left or right. Stored per clip, normalized 0-1.
 export let cropDrag = null;
 wrap.addEventListener('pointerdown', e => {
-  if (state.tracking || exportFormat() !== 'vertical') return;
+  if (state.tracking || !exportPreset().crop) return;
   const c = selected();
   if (!c) return;
   const r = videoRect();
@@ -118,13 +128,13 @@ wrap.addEventListener('pointerup', () => {
   if (!cropDrag) return;
   if (cropDrag.moved) {
     const px = Math.round((cropDrag.clip.cropOffset || 0) * state.vw);
-    toast(`9:16 crop shifted ${px > 0 ? '+' : ''}${px}px — double-click video to recenter`, false, 2500);
+    toast(`${exportPreset().ratio} crop shifted ${px > 0 ? '+' : ''}${px}px — double-click video to recenter`, false, 2500);
     saveProject();
   }
   cropDrag = null;
 });
 wrap.addEventListener('dblclick', () => {
-  if (state.tracking || exportFormat() !== 'vertical') return;
+  if (state.tracking || !exportPreset().crop) return;
   const c = selected();
   if (c && c.cropOffset) { c.cropOffset = 0; saveProject(); drawOverlay(); toast('Crop recentered on the tracked player'); }
 });
@@ -162,15 +172,19 @@ $('refreshVideos').onclick = refreshVideos;
 $('videoSelect').onchange = e => { if (e.target.value) loadVideo(e.target.value); };
 $('skipFrames').onchange = e => e.target.blur(); // keep arrow keys on the video, not the dropdown
 
-// export format: 16:9 (YouTube) or 9:16 follow-crop (Reels/Shorts/TikTok)
+// export format (public/js/presets.js): 16:9 (YouTube), 9:16 follow-crop (Reels/Shorts/
+// TikTok) or 1:1 follow-crop (Instagram/Facebook feed)
 $('exportFormat').value = localStorage.getItem('gr-format') || 'wide';
+if (!$('exportFormat').value) $('exportFormat').value = 'wide'; // stored value no longer offered
 $('exportFormat').onchange = e => {
   localStorage.setItem('gr-format', e.target.value);
   e.target.blur();
   drawOverlay();
-  if (e.target.value === 'vertical') toast('9:16 mode — dashed guide shows the Reels crop (follows tracking) · drag the video to shift it left/right', false, 4500);
+  const p = exportPreset();
+  if (p.crop) toast(`${p.ratio} mode — dashed guide shows the ${p.label} crop (follows tracking) · drag the video to shift it left/right`, false, 4500);
 };
 export function exportFormat() { return $('exportFormat').value; }
+export function exportPreset() { return presetById(exportFormat()); }
 
 export function setIn() {
   state.inMs = Math.round(video.currentTime * 1000);

@@ -127,6 +127,27 @@ const events = new AbortController();
   });
   console.log('  →', r3.file);
 
+  console.log('export 4: square 1:1 with tracking follow-crop, and untracked…');
+  const rSq = await post('/api/export', {
+    videoPath,
+    clip: { name: 'Test Game 04 Goal', inMs: 5000, outMs: 12000, label: 'Goal', anchors },
+    assets: { badgePng, circlePng, labelPng }, meta: { testRun: true, ...meta, format: 'square' },
+  });
+  const rSqPlain = await post('/api/export', {
+    videoPath,
+    clip: { name: 'Test Game 05 Shot', inMs: 20000, outMs: 22000, label: null, anchors: [], cropOffset: 0.2 },
+    assets: {}, meta: { testRun: true, ...meta, format: 'square' },
+  });
+  for (const r of [rSq, rSqPlain]) {
+    if (!/^_test\/Square\/.* \[1x1\]\.mp4$/.test(r.file)) throw new Error('square export path: ' + r.file);
+  }
+  console.log('  →', rSq.file, '|', rSqPlain.file);
+  const bad = await fetch(BASE + '/api/export', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ videoPath, clip: { name: 'x', inMs: 0, outMs: 1000 }, assets: {}, meta: { ...meta, format: 'cinema' } }),
+  });
+  if (bad.status !== 400) throw new Error('unknown format should be refused, got ' + bad.status);
+
   console.log('stitch (uniform 16:9, lossless copy)…');
   const r4 = await post('/api/stitch', { testRun: true, files: [r1.file, r2.file], outName: 'Test Compilation' });
   console.log('  →', r4.file);
@@ -182,6 +203,10 @@ const events = new AbortController();
 
   const v = list.files.find(f => f.name === r3.file);
   if (!v || v.width !== 1080 || v.height !== 1920) throw new Error('vertical export is not 1080x1920');
+  for (const r of [rSq, rSqPlain]) {
+    const s = list.files.find(f => f.name === r.file);
+    if (!s || s.width !== 1080 || s.height !== 1080) throw new Error('square export is not 1080x1080: ' + r.file);
+  }
 
   for (const f of [r1.file, r2.file, r4.file]) {
     const out = execFileSync(ffprobe, ['-v', 'error', '-show_entries',
@@ -190,7 +215,7 @@ const events = new AbortController();
   }
   ['_badge.png', '_circle.png', '_label.png', '_card.png'].forEach(f => fs.unlinkSync(path.join(__dirname, f)));
   // tidy: remove test outputs so they don't clutter the Compilation Builder
-  for (const f of [r1, r2, r3, r4, r5, r6, r7, r8].map(r => r.file)) {
+  for (const f of [r1, r2, r3, rSq, rSqPlain, r4, r5, r6, r7, r8].map(r => r.file)) {
     fs.unlinkSync(path.join(__dirname, 'clips', f));
   }
   fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true });

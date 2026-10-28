@@ -92,6 +92,13 @@ if (!fs.existsSync(testGame)) {
   await page.selectOption('#exportFormat', 'vertical');
   await page.waitForTimeout(500);
   console.log('vertical mode: crop guide drawn, no errors so far:', errors.length === 0);
+
+  // 1:1 mode — guide renders, and an export through the UI lands in Square/ as [1x1]
+  await page.selectOption('#exportFormat', 'square');
+  await page.waitForTimeout(500);
+  await page.click('[data-act=export]');
+  await page.waitForFunction(() => /Square\/.*\[1x1\]\.mp4/.test((document.querySelector('.clip .status.ok') || {}).textContent || ''), null, { timeout: 120000 });
+  console.log('square export:', await page.$eval('.clip .status', el => el.textContent));
   await page.selectOption('#exportFormat', 'wide');
 
   // settings dialog: change the number, Save → stored and the badge redrawn
@@ -106,6 +113,9 @@ if (!fs.existsSync(testGame)) {
   await page.waitForSelector('.brow');
   const rows = await page.$$eval('.brow', els => els.map(el => el.textContent.trim()));
   console.log('builder rows:', rows.length);
+  const chips = await page.$$eval('.brow .chip', els => els.map(el => el.textContent).sort());
+  if (chips.join() !== '16:9,1:1') throw new Error('builder chips: ' + chips.join()); // sorted as text
+  console.log('builder chips:', chips.join(' '), '| warning:', await page.$eval('#builderWarn', el => el.textContent.slice(0, 30)));
   await page.click('#closeBuilder');
 
   // reload — project should restore from autosave
@@ -114,6 +124,7 @@ if (!fs.existsSync(testGame)) {
   await page.selectOption('#videoSelect', { index: 1 });
   await page.waitForSelector('.clip', { timeout: 10000 });
   console.log('autosave restored:', await page.$eval('.clip .name', el => el.textContent));
+
 
   await page.screenshot({ path: '_ui.png' });
   fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true }); // tidy test exports

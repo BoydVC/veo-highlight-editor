@@ -2,6 +2,7 @@
 import { selected } from './clips.js';
 import { $, TEST_RUN, toast, escapeHtml } from './core.js';
 import { stitchJobs, isActive } from './export.js';
+import { shapeOf } from './presets.js';
 import { settings } from './settings.js';
 
 // ---------- compilation builder (cross-game, re-orderable) ------------------------
@@ -27,13 +28,14 @@ export function renderBuilder() {
   const list = $('builderList');
   list.innerHTML = '';
   builderItems.forEach((f, i) => {
-    const vertical = f.height > f.width;
+    const shape = shapeOf(f.width, f.height);
+    const chipCls = { '9:16': 'v916', '1:1': 'sq11' }[shape] || '';
     const row = document.createElement('div');
     row.className = 'brow' + (f.checked ? '' : ' off');
     row.innerHTML = `
       <input type="checkbox" ${f.checked ? 'checked' : ''}>
       <span class="bname">${escapeHtml(f.name)}</span>
-      <span class="chip ${vertical ? 'v916' : ''}">${vertical ? '9:16' : '16:9'}</span>
+      <span class="chip ${chipCls}">${shape}</span>
       <span class="bdur">${f.duration ? f.duration.toFixed(1) + 's' : ''}</span>
       <button data-mv="-1" title="move up">▲</button>
       <button data-mv="1" title="move down">▼</button>`;
@@ -47,10 +49,9 @@ export function renderBuilder() {
     list.appendChild(row);
   });
   const picked = builderItems.filter(f => f.checked);
-  const hasWide = picked.some(f => f.width >= f.height);
-  const hasTall = picked.some(f => f.height > f.width);
-  $('builderWarn').textContent = hasWide && hasTall
-    ? '⚠ Mixed 16:9 and 9:16 clips selected — the output will pad everything to the first clip’s shape. Usually you want one format per compilation.'
+  const shapes = [...new Set(picked.map(f => shapeOf(f.width, f.height)))];
+  $('builderWarn').textContent = shapes.length > 1
+    ? `⚠ Mixed ${shapes.join(' and ')} clips selected — the output will pad everything to the first clip’s shape. Usually you want one format per compilation.`
     : '';
 }
 
@@ -116,7 +117,7 @@ export function renderCard(W, H, cfg, img) {
     const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
     x.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
   }
-  const vertical = H > W;
+  const vertical = H >= W; // 9:16 and 1:1 put the text in the lower third; 16:9 in a left panel
   const base = vertical ? W : H; // type scale basis
   const g = vertical
     ? x.createLinearGradient(0, H, 0, H * 0.30)

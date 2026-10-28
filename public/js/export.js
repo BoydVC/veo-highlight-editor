@@ -3,7 +3,7 @@ import { getBadgeCanvas, getCircleCanvas, renderLabelBanner } from './art.js';
 import { onStitchJob } from './builder.js';
 import { renderClips } from './clips.js';
 import { $, TEST_RUN, state, toast } from './core.js';
-import { exportFormat } from './player.js';
+import { exportFormat, exportPreset } from './player.js';
 import { saveProject } from './project.js';
 import { settings } from './settings.js';
 
@@ -103,8 +103,11 @@ export async function exportClip(c) {
     }
     const fmt = exportFormat();
     if (c.label) {
-      assets.labelPng = (fmt === 'vertical'
-        ? renderLabelBanner(c.label, 1920, 1000)
+      // cropped formats overlay the banner after the scale, so size it for the output
+      // frame (1080×1920 or 1080×1080), keeping ~40 px clear on each side
+      const p = exportPreset();
+      assets.labelPng = (p.crop
+        ? renderLabelBanner(c.label, p.outH, p.outW - 80)
         : renderLabelBanner(c.label)).toDataURL('image/png');
     }
     const res = await fetch('/api/export', {
