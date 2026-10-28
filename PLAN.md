@@ -126,8 +126,19 @@ server.js          Express server: streaming, probe, project save/load, export, 
 lib/exporter.js    ffmpeg command builder: cut + sendcmd tracking + label overlay
 lib/jobs.js        export/stitch queue: one ffmpeg at a time, progress over SSE, cancel
 public/index.html  single-page UI
-public/app.js      all frontend logic
-public/js/spline.js  Catmull-Rom spline shared by the preview, the exporter and tools/
+public/js/         frontend as native ES modules (no build step), entry point main.js:
+  core.js          DOM handles, app state, small helpers
+  project.js       game list, loading a game, project autosave
+  player.js        render loop, overlay preview, 9:16 crop drag, transport, in/out
+  timeline.js      zoomable timeline canvas + divider
+  clips.js         clip list, thumbnails, nudge/reorder/rename, labels
+  tracking.js      click-to-track mode
+  art.js           badge / foot circle / label banner art
+  export.js        export queue client (jobs, progress, cancel, Export All)
+  builder.js       Compilation Builder + intro/outro cards
+  settings.js      badge & label settings dialog
+  keyboard.js      shortcuts
+  spline.js        Catmull-Rom spline shared by the preview, the exporter and tools/
 public/styles.css  dark, keyboard-first UI
 games/             drop full-game files here (the server only serves videos from this folder)
 projects/          autosaved sidecar project JSON per video
@@ -165,7 +176,7 @@ Small wins shipped instead: 16× playback and the last speed is remembered per b
 ### UI refresh (Sept 2026)
 Visual pass only — no behavior changes, all IDs/classes the tests rely on kept. Neutral-pro dark
 theme (near-black canvas, layered grey surfaces, single cool-blue accent) driven by CSS tokens in
-`styles.css`; the timeline canvas reads the same tokens (`TL` in app.js) so it can't drift from
+`styles.css`; the timeline canvas reads the same tokens (`TL` in public/js/timeline.js) so it can't drift from
 the theme. Transport is a centered icon cluster with inline SVGs, hotkeys appear as `<kbd>` chips,
 clip cards show a frame grab at the in-point (grabbed on a hidden `<video>`, kept in memory for the
 session, keyed by id+inMs so a nudged in-point refreshes it), toasts sit bottom-right, focus rings

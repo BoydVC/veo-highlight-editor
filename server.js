@@ -30,7 +30,7 @@ function gamePath(p) {
 
 const app = express();
 app.use(express.json({ limit: '80mb' })); // overlay PNGs ride along with export requests
-// no-cache: the frontend changes between sessions and a stale cached app.js
+// no-cache: the frontend changes between sessions and a stale cached module
 // renders stale overlay art (browser draws the badge/label PNGs)
 app.use(express.static(path.join(ROOT, 'public'), {
   setHeaders: res => res.setHeader('Cache-Control', 'no-cache'),

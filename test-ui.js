@@ -87,6 +87,13 @@ if (!fs.existsSync(testGame)) {
   console.log('vertical mode: crop guide drawn, no errors so far:', errors.length === 0);
   await page.selectOption('#exportFormat', 'wide');
 
+  // settings dialog: change the number, Save → stored and the badge redrawn
+  await page.click('#settingsBtn');
+  await page.fill('#setNumber', '12');
+  await page.click('#saveSettings');
+  await page.waitForFunction(() => (JSON.parse(localStorage.getItem('gr-settings') || '{}')).number === '12');
+  console.log('settings saved:', await page.$eval('#toast', el => el.textContent));
+
   // compilation builder lists the export with format chip
   await page.click('#builderBtn');
   await page.waitForSelector('.brow');
