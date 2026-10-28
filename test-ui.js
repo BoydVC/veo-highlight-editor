@@ -125,6 +125,40 @@ if (!fs.existsSync(testGame)) {
   await page.waitForSelector('.clip', { timeout: 10000 });
   console.log('autosave restored:', await page.$eval('.clip .name', el => el.textContent));
 
+  // edits inside the 700 ms autosave delay: a reload must keep them, and switching games
+  // must not write this game's clips into the other game's project
+  const gameB = path.join(__dirname, 'games', 'Test Game B.mp4');
+  fs.copyFileSync(testGame, gameB);
+  const projectOf = name => page.evaluate(async n => {
+    const opt = [...document.getElementById('videoSelect').options].find(o => o.textContent.startsWith(n + ' ('));
+    return (await fetch('/api/project?video=' + encodeURIComponent(decodeURIComponent(opt.value)))).json();
+  }, name);
+  const pick = name => page.evaluate(n => {
+    const sel = document.getElementById('videoSelect');
+    sel.value = [...sel.options].find(o => o.textContent.startsWith(n + ' (')).value;
+    sel.dispatchEvent(new Event('change'));
+    sel.blur();
+  }, name);
+  const nudgeIn = () => page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: '.', bubbles: true })));
+  await page.click('#refreshVideos');
+  await page.waitForTimeout(300);
+  const inMs0 = (await projectOf('Test Game vs Skyhawks.mp4')).clips[0].inMs;
+  await nudgeIn();
+  await page.reload();                                             // well inside 700 ms
+  await page.waitForSelector('#videoSelect option:nth-child(3)', { state: 'attached' });
+  const inMs1 = (await projectOf('Test Game vs Skyhawks.mp4')).clips[0].inMs;
+  if (!(inMs1 > inMs0)) throw new Error(`edit lost on reload: inMs ${inMs0} → ${inMs1}`);
+  await pick('Test Game vs Skyhawks.mp4');
+  await page.waitForSelector('.clip', { timeout: 10000 });
+  await nudgeIn();
+  await pick('Test Game B.mp4');                                   // switch right after the edit
+  await page.waitForTimeout(1500);
+  const b = await projectOf('Test Game B.mp4'), a = await projectOf('Test Game vs Skyhawks.mp4');
+  if (b.clips.length) throw new Error('switching games wrote the old clips into Test Game B');
+  if (!(a.clips[0].inMs > inMs1)) throw new Error('edit lost when switching games');
+  console.log(`quick edits kept: reload ${inMs0}→${inMs1} ms, switch →${a.clips[0].inMs} ms, other game untouched`);
+  fs.rmSync(gameB, { force: true });
+  for (const f of ['Test Game B.json', 'Test Game B.json.bak']) fs.rmSync(path.join(__dirname, 'projects', f), { force: true });
 
   await page.screenshot({ path: '_ui.png' });
   fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true }); // tidy test exports

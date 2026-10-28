@@ -19,10 +19,13 @@ export async function refreshVideos() {
 
 export async function loadVideo(encPath) {
   const p = decodeURIComponent(encPath);
+  // close out the current game first: a save still pending (or queued by leaving tracking)
+  // must not fire after state.videoPath changes, or it writes these clips into the new game
+  exitTracking(true);
+  flushSave();
   state.videoPath = p;
   state.videoName = p.split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
   $('dropHint').classList.add('hidden');
-  exitTracking(true);
 
   const meta = await fetch('/api/probe?path=' + encodeURIComponent(p)).then(r => r.json());
   state.fps = meta.fps || 30;
@@ -47,14 +50,24 @@ export async function loadVideo(encPath) {
   drawTimeline();
 }
 
-export let saveTimer;
+// Autosave is debounced (700 ms after the last change). flushSave() sends a pending save
+// right away — before switching games, and when the page closes or reloads.
+export let saveTimer = null;
+function postProject(keepalive) {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  return fetch('/api/project', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    keepalive, // lets the request outlive a closing page (browsers cap these at 64 KB)
+    body: JSON.stringify({ video: state.videoPath, data: { clips: state.clips } }),
+  }).catch(() => toast('Autosave failed', true));
+}
 export function saveProject() {
   if (!state.videoPath) return;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    fetch('/api/project', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ video: state.videoPath, data: { clips: state.clips } }),
-    }).catch(() => toast('Autosave failed', true));
-  }, 700);
+  saveTimer = setTimeout(() => postProject(false), 700);
 }
+export function flushSave(keepalive = false) {
+  if (saveTimer) postProject(keepalive);
+}
+window.addEventListener('pagehide', () => flushSave(true));
