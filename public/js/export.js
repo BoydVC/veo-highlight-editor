@@ -121,7 +121,11 @@ export async function exportClip(c) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         videoPath: state.videoPath, ref: c.id,
-        clip: { name: c.name, inMs: c.inMs, outMs: c.outMs, label: c.label, anchors: c.anchors, cropOffset: c.cropOffset || 0 },
+        clip: {
+          name: c.name, inMs: c.inMs, outMs: c.outMs, label: c.label, anchors: c.anchors, cropOffset: c.cropOffset || 0,
+          // Preset id only. The server rebuilds the EXAMPLE line; Hold never reaches this.
+          caption: c.caption ? { preset: c.caption.preset, sport: c.caption.sport } : undefined,
+        },
         assets,
         meta: { width: state.vw, height: state.vh, fps: state.fps, labelSeconds: settings.labelSeconds, format: fmt, testRun: TEST_RUN },
       }),

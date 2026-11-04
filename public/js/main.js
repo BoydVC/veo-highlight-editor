@@ -9,6 +9,7 @@ import './export.js';
 import './builder.js';
 import './keyboard.js';
 import './settings.js';
+import './captionbar.js';
 
 // ---------- boot -------------------------------------------------------------------
 window.addEventListener('resize', () => { drawOverlay(); drawTimeline(); });

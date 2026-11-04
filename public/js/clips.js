@@ -101,6 +101,9 @@ export function nudge(which, frames) {
   toast(`${which.toUpperCase()} ${d > 0 ? '+' : ''}${d}ms → ${fmtTime((which === 'in' ? c.inMs : c.outMs) / 1000)}`);
 }
 
+let afterRender = () => {};
+export function onClipsRendered(fn) { afterRender = fn; }
+
 export function renderClips() {
   const list = $('clipList');
   $('clipCount').textContent = state.clips.length ? `(${state.clips.length})` : '';
@@ -118,6 +121,7 @@ export function renderClips() {
         <div class="sub"><span>${fmtTime(c.inMs / 1000)} → ${fmtTime(c.outMs / 1000)}</span></div>
         <div class="chips">
           ${c.label ? `<span class="badge-label">${escapeHtml(c.label)}</span>` : ''}
+          ${c.caption && c.caption.text ? `<span class="caption-chip" title="${escapeHtml(c.caption.text)}">EXAMPLE</span>` : ''}
           ${c.anchors && c.anchors.length ? `<span class="track-ok">${c.anchors.length} anchors</span>` : '<span class="sub">not tracked</span>'}
         </div>
       </div>
@@ -148,6 +152,7 @@ export function renderClips() {
     div.querySelector('[data-act=del]').onclick = () => deleteClip(c.id);
     list.appendChild(div);
   }
+  afterRender();
 }
 
 export function beginRename(div, c) {

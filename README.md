@@ -20,6 +20,19 @@ does both: it opens the browser and starts the server.
 2. Pick the game from the dropdown.
 3. Open **Badge & Settings** once and fill in the player's name, number, and colors. Name and number start blank (`Player` / `#00` are placeholders).
 
+## Two minutes: caption and share
+
+Sample captions are synthetic. The gold **EXAMPLE** label stays on the caption bar, the clip, and the share sheet. GameReels does not upload them.
+
+1. Start the app and open a game (about 15 seconds).
+2. Mark a play with `I`, `O`, `C`, then `1`–`9` to label it — Goal, Draw Win, Dribble, and the other built-in labels (about 20 seconds).
+3. Under the labels, choose **Lacrosse** or **Soccer**. Hold **Short** (100 characters or fewer), **Medium**, or **Hashtag pack**. Holding shows a preview and does not export (about 20 seconds).
+4. Press **Apply** to keep that line on the clip. Apply still does not export or post (about 10 seconds).
+5. Press **Share**. **Copy caption** copies the EXAMPLE line on this PC. **Open share intent** is a placeholder: Instagram and TikTok are not opened, and the sheet does not report an upload (about 30 seconds).
+6. Press `E` when you want the MP4 in `clips/`. Export is the step that writes the video. It also writes a `.caption.txt` beside it, rebuilt from the preset, and it still does not share the file (about 25 seconds).
+
+A label that is not one of the built-in play names stays off the sample caption (the line says "highlight" instead). Nothing in the sample copy is a roster name.
+
 ## The workflow
 
 | Step | How |
@@ -28,6 +41,8 @@ does both: it opens the browser and starts the server.
 | Found a play | `I` at the start, `O` at the end, `C` → clip created & auto-named |
 | Fine trim | `←→` step one frame (33 ms); `,`/`.` nudge IN, `Shift+,`/`.` nudge OUT |
 | Label it | `1`–`9` (Goal, Assist, Shot, Draw Win, Ground Ball, Dodge, Dribble, … — lacrosse and soccer defaults; edit the list in Settings) |
+| Caption | Hold **Short**, **Medium**, or **Hashtag pack**, then **Apply**. The **EXAMPLE** label stays visible. Hold and Apply do not export or post. |
+| Share | **Share** copies the caption or opens a placeholder. Nothing is uploaded. |
 | Track the player | `T` → click their feet → video auto-advances → click again → `Esc` when done (`U` undoes) |
 | Check it | ▶ Review on the clip — overlay preview plays live |
 | Pick a preset | **Social presets** bar: hold **9:16 Vertical**, **1:1 Square**, or **16:9 Landscape** to preview the crop. **Apply** commits that shape for the next export. Hold and Apply do not post or share. |
@@ -98,9 +113,11 @@ devices on your network can't reach it.
 
 ## Health check
 
+`node test-captions.js` checks the three EXAMPLE presets, Hold versus Apply, and the share-intent placeholder (no server).
+`node test-gates.js` checks that `invent_upload`, `auto_post`, and `share_external` stay **403** (it starts the server if needed).
 `node test-presets.js` checks preset labels, crop math, and Hold/Apply (no server needed).
 `node test-export.js` (with the server running) round-trips a tracked export,
-a plain cut, a 9:16 export, a 1:1 export, and a stitch against a synthetic test video;
-`node test-ui.js` drives the real UI with Playwright, including preset hold and Apply.
-Export tests write their outputs to `clips/_test/` — hidden from the Compilation
-Builder — and delete them when they finish.
+a plain cut, a 9:16 export, a 1:1 export, a caption sidecar, and a stitch against a synthetic test video;
+`node test-ui.js` drives the real UI with Playwright, including preset hold and Apply, caption hold and Apply, and the share sheet.
+Exports land in `clips/` or `clips/_test/` — `_test` is hidden from the Compilation
+Builder — and the tests delete them when they finish.

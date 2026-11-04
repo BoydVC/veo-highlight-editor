@@ -6,6 +6,10 @@ const path = require('path');
 
 // regenerate the synthetic test game if it was deleted (40s of moving test pattern)
 const testGame = path.join(__dirname, 'games', 'Test Game vs Skyhawks.mp4');
+// This smoke test owns the synthetic game's project. A leftover clip from an
+// earlier run would make "did Hold write a caption?" look at the wrong card.
+fs.rmSync(path.join(__dirname, 'projects', 'Test Game vs Skyhawks.json'), { force: true });
+fs.rmSync(path.join(__dirname, 'projects', 'Test Game vs Skyhawks.json.bak'), { force: true });
 if (!fs.existsSync(testGame)) {
   console.log('test game missing — regenerating…');
   require('child_process').execFileSync(require('ffmpeg-static'), ['-y', '-v', 'error',
@@ -30,7 +34,13 @@ async function launchBrowser() {
 
 (async () => {
   const browser = await launchBrowser();
-  const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
+  const context = await browser.newContext({
+    viewport: { width: 1600, height: 950 },
+    permissions: ['clipboard-read', 'clipboard-write'],
+  });
+  const page = await context.newPage();
+  const posts = [];
+  page.on('request', req => { if (req.method() === 'POST') posts.push(req.url()); });
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
@@ -73,6 +83,85 @@ async function launchBrowser() {
   await page.waitForSelector('.clip .badge-label');
   console.log('label:', await page.$eval('.clip .badge-label', el => el.textContent));
 
+  // Caption presets: hold previews, Apply stores, neither exports or posts.
+  const exampleFlag = await page.$eval('#captionExample', el => el.textContent.trim());
+  if (exampleFlag !== 'EXAMPLE') throw new Error('EXAMPLE label missing: ' + exampleFlag);
+  const exampleVisible = await page.$eval('#captionExample', el => {
+    const s = getComputedStyle(el);
+    return s.display !== 'none' && s.visibility !== 'hidden' && el.getClientRects().length > 0;
+  });
+  if (!exampleVisible) throw new Error('EXAMPLE label is not visible');
+
+  await page.click('#captionPresets button[data-preset=short]');
+  const holding = await page.$eval('#captionStatus', el => el.textContent);
+  console.log('caption hold:', holding);
+  if (!/Holding Short/.test(holding) || !/does not export/.test(holding) || !/Nothing is posted/.test(holding)) {
+    throw new Error('hold copy: ' + holding);
+  }
+  const preview = await page.$eval('#captionPreview', el => el.textContent);
+  console.log('short preview:', preview, preview.length);
+  if (!preview.startsWith('EXAMPLE') || !/Lacrosse Goal/.test(preview) || [...preview].length > 100) {
+    throw new Error('short preview: ' + preview);
+  }
+  if (await page.$('.clip.selected .caption-chip')) throw new Error('hold wrote a caption onto the clip');
+  if (posts.some(u => /\/api\/(export|invent_upload|auto_post|share_external|share)\b/.test(u))) {
+    throw new Error('hold contacted export or share: ' + posts.join(','));
+  }
+
+  await page.click('#applyCaption');
+  const appliedCopy = await page.$eval('#captionStatus', el => el.textContent);
+  console.log('caption apply:', appliedCopy);
+  if (!/Applied Short/.test(appliedCopy) || !/Nothing is posted/.test(appliedCopy)) {
+    throw new Error('apply copy: ' + appliedCopy);
+  }
+  if (await page.$eval('.clip.selected .caption-chip', el => el.textContent.trim()) !== 'EXAMPLE') {
+    throw new Error('applied chip lost the EXAMPLE label');
+  }
+  if (posts.some(u => /\/api\/(export|invent_upload|auto_post|share_external|share)\b/.test(u))) {
+    throw new Error('Apply contacted export or share: ' + posts.join(','));
+  }
+
+  await page.click('#shareCaption');
+  await page.waitForSelector('#shareDlg[open]');
+  const shareText = await page.$eval('#shareCaptionText', el => el.textContent);
+  if (shareText !== preview) throw new Error('share text: ' + shareText);
+  if (await page.$eval('#shareDlg .example-flag', el => el.textContent.trim()) !== 'EXAMPLE') {
+    throw new Error('share sheet EXAMPLE label missing');
+  }
+  await page.click('#copyCaptionBtn');
+  await page.waitForFunction(() => /Caption copied|Clipboard blocked/.test(document.getElementById('toast').textContent || ''));
+  const copyToast = await page.$eval('#toast', el => el.textContent);
+  console.log('copy toast:', copyToast);
+  if (/uploaded to|posted to|success/i.test(copyToast)) throw new Error('copy toast invented a post: ' + copyToast);
+  await page.click('#openShareIntent');
+  await page.waitForSelector('#shareIntent:not(.hidden)');
+  const intent = await page.$eval('#shareIntentMsg', el => el.textContent);
+  const lines = await page.$eval('#shareIntentLines', el => el.innerText);
+  console.log('share intent:', intent, '|', lines.replace(/\n/g, ' / '));
+  if (!/Share intent placeholder/.test(intent) || !/Nothing was uploaded/.test(intent)) {
+    throw new Error('intent copy: ' + intent);
+  }
+  if (/success|uploaded to|posted to/i.test(intent + '\n' + lines)) throw new Error('invented upload success');
+  if (!/Instagram: not opened/.test(lines) || !/TikTok: not opened/.test(lines) || !/Upload: refused/.test(lines)) {
+    throw new Error('intent lines: ' + lines);
+  }
+  if (posts.some(u => /\/api\/(export|invent_upload|auto_post|share_external|share)\b/.test(u))) {
+    throw new Error('share sheet contacted export or share: ' + posts.join(','));
+  }
+  await page.screenshot({ path: '_caption_share.png' });
+  await page.click('#closeShare');
+
+  // A new hold must not replace the applied caption or export.
+  await page.click('#captionPresets button[data-preset=hashtags]');
+  const tagHold = await page.$eval('#captionStatus', el => el.textContent);
+  const tagPreview = await page.$eval('#captionPreview', el => el.textContent);
+  console.log('hashtag hold:', tagHold, tagPreview);
+  if (!/Holding Hashtag pack/.test(tagHold) || !/does not export/.test(tagHold)) throw new Error(tagHold);
+  if (!tagPreview.startsWith('EXAMPLE') || !/#/.test(tagPreview)) throw new Error(tagPreview);
+  if (await page.$eval('.clip.selected .caption-chip', el => el.getAttribute('title')) !== preview) {
+    throw new Error('hashtag hold replaced the applied caption');
+  }
+
   // frame stepping changes time by ~1/30s
   const t0 = await page.$eval('#video', v => v.currentTime);
   await page.keyboard.press('ArrowRight');
@@ -97,9 +186,6 @@ async function launchBrowser() {
   console.log('tracking saved:', await page.$eval('.clip .track-ok', el => el.textContent));
 
   // social presets: hold previews, Apply commits, neither one exports or posts
-  const posts = [];
-  page.on('request', req => { if (req.method() === 'POST') posts.push(req.url()); });
-
   const labels = await page.$$eval('#presetChoices [data-preset]', els => els.map(el => ({
     id: el.dataset.preset,
     text: el.innerText.replace(/\s+/g, ' ').trim(),
@@ -121,10 +207,10 @@ async function launchBrowser() {
   }
 
   await page.click('#presetChoices [data-preset=square]');
-  const holding = await page.$eval('#presetStatus', el => el.textContent);
-  console.log('hold status:', holding);
-  if (!/Holding 1:1 Square/.test(holding) || !/Nothing is posted/.test(holding)) {
-    throw new Error('hold copy: ' + holding);
+  const presetHold = await page.$eval('#presetStatus', el => el.textContent);
+  console.log('hold status:', presetHold);
+  if (!/Holding 1:1 Square/.test(presetHold) || !/Nothing is posted/.test(presetHold)) {
+    throw new Error('hold copy: ' + presetHold);
   }
   if (await page.$eval('#presetChoices [data-preset=square]', el => el.classList.contains('is-applied'))) {
     throw new Error('square hold was applied without Apply');
@@ -158,10 +244,10 @@ async function launchBrowser() {
   // Apply square, then an export through the UI lands in Square/ as [1x1]
   await page.click('#presetChoices [data-preset=square]');
   await page.click('#applyPreset');
-  const appliedCopy = await page.$eval('#presetStatus', el => el.textContent);
-  console.log('apply status:', appliedCopy);
-  if (!/1:1 Square is applied/.test(appliedCopy) || !/Nothing is posted/.test(appliedCopy)) {
-    throw new Error('apply copy: ' + appliedCopy);
+  const presetApplied = await page.$eval('#presetStatus', el => el.textContent);
+  console.log('apply status:', presetApplied);
+  if (!/1:1 Square is applied/.test(presetApplied) || !/Nothing is posted/.test(presetApplied)) {
+    throw new Error('apply copy: ' + presetApplied);
   }
   if (posts.some(u => u.includes('/api/export') && posts.filter(u => u.includes('/api/export')).length > 1)) {
     throw new Error('Apply triggered an export');
@@ -194,7 +280,13 @@ async function launchBrowser() {
   await page.waitForSelector('#videoSelect option:nth-child(2)', { state: 'attached' });
   await page.selectOption('#videoSelect', { index: 1 });
   await page.waitForSelector('.clip', { timeout: 10000 });
+  await page.waitForSelector('.clip.selected .caption-chip', { timeout: 10000 });
   console.log('autosave restored:', await page.$eval('.clip .name', el => el.textContent));
+  const restored = await page.$eval('.clip.selected .caption-chip', el => el.getAttribute('title') || '');
+  console.log('caption restored:', restored);
+  if (!restored.startsWith('EXAMPLE') || /Jamie|Skyhawk/.test(restored)) {
+    throw new Error('restored caption: ' + restored);
+  }
 
   // edits inside the 700 ms autosave delay: a reload must keep them, and switching games
   // must not write this game's clips into the other game's project
