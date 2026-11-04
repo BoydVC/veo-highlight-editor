@@ -100,7 +100,7 @@ const assert = require('assert');
   assert.strictEqual(session.snapshot().outbound, false);
   assert.strictEqual(session.exportFormat(), 'vertical');
 
-  assert.throws(() => session.hold('charlotte'), /unknown export preset/);
+  assert.throws(() => session.hold('alex'), /unknown export preset/);
   assert.strictEqual(session.snapshot().held, 'vertical');
   assert.strictEqual(session.exportFormat(), 'vertical');
 
