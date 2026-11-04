@@ -2,7 +2,7 @@
 
 ![GameReels](screenshots/00-best-home.png)
 
-Turn full-game Veo film into social clips — Reels, YouTube Shorts, and 16:9. **Best for lacrosse and soccer.**
+Turn full-game Veo film into social clips — vertical Reels, square feed posts, and 16:9 YouTube. **Best for lacrosse and soccer.**
 Keyboard-first clipping, hotkey labels, click-to-track player badge overlays, one-button export and stitching.
 See `PLAN.md` for the design.
 
@@ -45,25 +45,35 @@ A label that is not one of the built-in play names stays off the sample caption 
 | Share | **Share** copies the caption or opens a placeholder. Nothing is uploaded. |
 | Track the player | `T` → click their feet → video auto-advances → click again → `Esc` when done (`U` undoes) |
 | Check it | ▶ Review on the clip — overlay preview plays live |
-| Pick a format | top-bar selector: **16:9 · YouTube** (1920×1080), **9:16 · Reels** (1080×1920) or **1:1 · Square** (1080×1080) |
-| Export | `E` (or Export per clip, or **Export All**) → MP4s land in `clips/YouTube/`, `clips/Reels/` or `clips/Square/` by format. Exports queue up and run in the background — keep clipping; progress shows on each clip and in the top bar, and **Cancel** / ✕ stops one |
+| Pick a preset | **Social presets** bar: hold **9:16 Vertical**, **1:1 Square**, or **16:9 Landscape** to preview the crop. **Apply** commits that shape for the next export. Hold and Apply do not post or share. |
+| Export | `E` (or Export per clip, or **Export All**) writes an MP4 on this PC into `clips/YouTube/`, `clips/Reels/`, or `clips/Square/` in the shape you Applied. Exports queue up and run in the background — keep clipping; progress shows on each clip and in the top bar, and **Cancel** / ✕ stops one. Nothing is posted. |
 | Reorder | ▲▼ on a clip (or `Alt+↑↓`) — sets the numbering used in export filenames |
 | Compilation | **🎞 Compilation Builder** — all exported clips from every game: check, reorder with ▲▼, stitch |
 | Transitions | builder dropdown: hard cut, crossfade, fade through black, slide, circle reveal (0.5 s) |
 | Intro/Outro | builder cards: photo + kicker/title/subtitle text on a dark highlight card, 3.5 s each |
 
-## Export formats
+## Social export presets
 
-- **16:9 (YouTube)** — full Veo frame, 1920×1080. YouTube's recommended landscape spec.
-- **9:16 (Instagram Reels)** — 1080×1920 vertical. The crop **auto-follows the tracked player** using
-  the tracking anchors (with smooth camera-style panning); untracked clips center-crop.
-  The same file works for YouTube Shorts and TikTok. In 9:16 mode a dashed guide on the
-  player shows exactly what the crop will keep — **drag the video left/right** to shift the
-  crop off the tracked player when the action is beside them (double-click to recenter;
-  the shift is saved per clip).
-- **1:1 (Instagram / Facebook feed)** — 1080×1080 square, cropped the same way: it follows the
-  tracked player, shows a dashed guide, and can be dragged left/right. On 16:9 Veo film the
-  square is the full frame height, so it pans side to side.
+Preview a shape, then **Apply**. The dashed guide is only a preview until you Apply.
+Export uses the applied preset and writes a file on this PC. GameReels does not post
+or invent footage — every frame comes from the game video you already have.
+
+- **9:16 Vertical** — 1080×1920, for lacrosse and soccer highlights on Instagram Reels,
+  YouTube Shorts, and TikTok. The crop **auto-follows the tracked player** using the
+  tracking anchors (with smooth camera-style panning); untracked clips center-crop.
+  Files land in `clips/Reels/` with a ` [9x16]` suffix.
+- **1:1 Square** — 1080×1080, for Instagram and Facebook feed posts. It follows the
+  tracked player the same way. On 16:9 Veo film the square is the full frame height, so
+  it pans side to side; when a source is taller than the square, the crop also pans
+  vertically. Files land in `clips/Square/` with a ` [1x1]` suffix.
+- **16:9 Landscape** — the full Veo frame, usually 1920×1080, for YouTube. No crop.
+  Files land in `clips/YouTube/`.
+
+In 9:16 or 1:1, a dashed guide shows what the crop will keep. **Drag the video left/right**
+to shift it off the tracked player when the action is beside them (double-click to recenter;
+the shift is saved per clip). Holding a preset does not export. Apply does not export.
+Only Export, Export All, or `E` writes a file, and only in the shape you Applied.
+
 - Exports encode on the **NVIDIA GPU (NVENC)** when there is one — about 1.8× faster than the
   CPU on this PC — and fall back to the CPU (libx264) automatically; the server prints which one
   it picked at startup. `set CC_ENCODER=cpu` before `npm start` forces the CPU.
@@ -105,8 +115,9 @@ devices on your network can't reach it.
 
 `node test-captions.js` checks the three EXAMPLE presets, Hold versus Apply, and the share-intent placeholder (no server).
 `node test-gates.js` checks that `invent_upload`, `auto_post`, and `share_external` stay **403** (it starts the server if needed).
-`node test-presets.js` checks the export-format crop math (no server needed).
+`node test-presets.js` checks preset labels, crop math, and Hold/Apply (no server needed).
 `node test-export.js` (with the server running) round-trips a tracked export,
-a plain cut, a caption sidecar, and a stitch against a synthetic test video; `node test-ui.js` drives the real UI
-with Playwright, including hold, Apply, and the share sheet. Exports land in `clips/` or `clips/_test/` —
-`_test` is hidden from the Compilation Builder — and the tests delete them when they finish.
+a plain cut, a 9:16 export, a 1:1 export, a caption sidecar, and a stitch against a synthetic test video;
+`node test-ui.js` drives the real UI with Playwright, including preset hold and Apply, caption hold and Apply, and the share sheet.
+Exports land in `clips/` or `clips/_test/` — `_test` is hidden from the Compilation
+Builder — and the tests delete them when they finish.

@@ -21,15 +21,20 @@
     <span id="jobsText"></span>
     <button id="jobCancel" class="icon-btn" title="Cancel the running job">✕</button>
   </span>
-  <select id="exportFormat" title="Export format — 16:9 for YouTube; 9:16 (Reels/Shorts/TikTok) and 1:1 (Instagram/Facebook feed) crop to follow the tracked player">
-    <option value="wide">16:9 · YouTube</option>
-    <option value="vertical">9:16 · Reels</option>
-    <option value="square">1:1 · Square</option>
-  </select>
   <button id="settingsBtn">Badge &amp; Settings</button>
   <button id="exportAllBtn" class="accent">Export All Clips</button>
   <button id="builderBtn">Compilation Builder</button>
 </header>
+
+<div id="presetBar">
+  <div class="preset-lead">
+    <strong>Social presets</strong>
+    <span>Lacrosse &amp; soccer</span>
+  </div>
+  <div id="presetChoices" role="radiogroup" aria-label="Hold a social export preset to preview it"></div>
+  <p id="presetStatus" class="meta"></p>
+  <button type="button" id="applyPreset" title="Commit the held preset for the next export. Does not post or share.">Apply</button>
+</div>
 
 <main>
   <section id="playerPane">

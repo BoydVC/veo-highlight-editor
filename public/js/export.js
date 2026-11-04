@@ -3,7 +3,8 @@ import { getBadgeCanvas, getCircleCanvas, renderLabelBanner } from './art.js';
 import { onStitchJob } from './builder.js';
 import { renderClips } from './clips.js';
 import { $, TEST_RUN, state, toast } from './core.js';
-import { exportFormat, exportPreset } from './player.js';
+import { presetById } from './presets.js';
+import { exportFormat, exportPreset, presetSnapshot } from './player.js';
 import { saveProject } from './project.js';
 import { settings } from './settings.js';
 
@@ -102,6 +103,12 @@ export async function exportClip(c) {
       assets.badgePng = getBadgeCanvas().toDataURL('image/png');
     }
     const fmt = exportFormat();
+    const snap = presetSnapshot();
+    if (snap.pending) {
+      const held = presetById(snap.held);
+      const applied = presetById(fmt);
+      toast(`Exporting applied ${applied.ratio} ${applied.label}. ${held.ratio} ${held.label} is still a preview — Apply it before exporting that shape. Nothing is posted.`, false, 5000);
+    }
     if (c.label) {
       // cropped formats overlay the banner after the scale, so size it for the output
       // frame (1080×1920 or 1080×1080), keeping ~40 px clear on each side

@@ -2,7 +2,7 @@
 import { getBadgeCanvas, getCircleCanvas } from './art.js';
 import { createClip, selected } from './clips.js';
 import { $, video, overlay, wrap, state, clamp, fmtTime, toast, videoRect } from './core.js';
-import { presetById, cropWindow } from './presets.js';
+import { PRESETS, presetById, cropWindow, createPresetSession } from './presets.js';
 import { refreshVideos, loadVideo, saveProject } from './project.js';
 import { splineAt } from './spline.js';
 import { drawTimeline } from './timeline.js';
@@ -40,7 +40,7 @@ export function drawOverlay() {
     ? state.clips.find(c => c.id === state.tracking.clipId)
     : state.clips.find(c => c.id === state.selectedId);
 
-  const cropping = exportPreset().crop;
+  const cropping = heldPreset().crop;
   wrap.classList.toggle('cropAdj', cropping && !!clip && !state.tracking);
   if (cropping) drawCropGuide(ctx, r, clip);
   if (!clip || !clip.anchors || !clip.anchors.length) return;
@@ -73,11 +73,13 @@ export function drawOverlay() {
   }
 }
 
-// dashed window showing what survives the 9:16 / 1:1 crop (export smooths the
-// pan with a camera filter; this guide follows the raw spline — close enough)
+// Dashed window for the held 9:16 or 1:1 preset. Export smooths the pan with a
+// camera filter; this guide follows the raw spline — close enough to judge the crop.
+// While the hold is unapplied the label says "preview". Nothing is written or posted.
 export function drawCropGuide(ctx, r, clip) {
-  const p = exportPreset();
+  const p = heldPreset();
   const win = cropWindow(p.id, state.vw, state.vh);
+  if (!win) return;
   const s = r.w / state.vw;
   const cw = win.cropW * s, ch = win.cropH * s;
   let centerX = r.x + r.w / 2, centerY = r.y + r.h / 2;
@@ -100,17 +102,19 @@ export function drawCropGuide(ctx, r, clip) {
   ctx.setLineDash([7, 5]);
   ctx.strokeRect(left, top + 1, cw, ch - 2);
   ctx.setLineDash([]);
-  ctx.fillStyle = 'rgba(255,255,255,.75)';
-  ctx.font = '11px "Segoe UI", sans-serif';
-  ctx.fillText(p.ratio, left + 6, top + 16);
+  const pending = presetSnapshot().pending;
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.font = '600 12px "Segoe UI", sans-serif';
+  ctx.fillText(pending ? p.ratio + ' preview' : p.ratio, left + 8, top + 18);
 }
 
 // ---------- 9:16 / 1:1 crop offset drag ---------------------------------------------
-// In a cropping format, drag the video horizontally to shift the crop window off the tracked
-// player — for when the action is to the player's left or right. Stored per clip, normalized 0-1.
+// While a 9:16 or 1:1 preset is held, drag the video horizontally to shift the crop
+// window off the tracked player. Stored per clip, normalized 0-1. Drag only edits
+// the local project — it does not export or post.
 export let cropDrag = null;
 wrap.addEventListener('pointerdown', e => {
-  if (state.tracking || !exportPreset().crop) return;
+  if (state.tracking || !heldPreset().crop) return;
   const c = selected();
   if (!c) return;
   const r = videoRect();
@@ -128,13 +132,13 @@ wrap.addEventListener('pointerup', () => {
   if (!cropDrag) return;
   if (cropDrag.moved) {
     const px = Math.round((cropDrag.clip.cropOffset || 0) * state.vw);
-    toast(`${exportPreset().ratio} crop shifted ${px > 0 ? '+' : ''}${px}px — double-click video to recenter`, false, 2500);
+    toast(`${heldPreset().ratio} crop shifted ${px > 0 ? '+' : ''}${px}px — double-click video to recenter`, false, 2500);
     saveProject();
   }
   cropDrag = null;
 });
 wrap.addEventListener('dblclick', () => {
-  if (state.tracking || !exportPreset().crop) return;
+  if (state.tracking || !heldPreset().crop) return;
   const c = selected();
   if (c && c.cropOffset) { c.cropOffset = 0; saveProject(); drawOverlay(); toast('Crop recentered on the tracked player'); }
 });
@@ -172,19 +176,77 @@ $('refreshVideos').onclick = refreshVideos;
 $('videoSelect').onchange = e => { if (e.target.value) loadVideo(e.target.value); };
 $('skipFrames').onchange = e => e.target.blur(); // keep arrow keys on the video, not the dropdown
 
-// export format (public/js/presets.js): 16:9 (YouTube), 9:16 follow-crop (Reels/Shorts/
-// TikTok) or 1:1 follow-crop (Instagram/Facebook feed)
-$('exportFormat').value = localStorage.getItem('gr-format') || 'wide';
-if (!$('exportFormat').value) $('exportFormat').value = 'wide'; // stored value no longer offered
-$('exportFormat').onchange = e => {
-  localStorage.setItem('gr-format', e.target.value);
-  e.target.blur();
-  drawOverlay();
-  const p = exportPreset();
-  if (p.crop) toast(`${p.ratio} mode — dashed guide shows the ${p.label} crop (follows tracking) · drag the video to shift it left/right`, false, 4500);
-};
-export function exportFormat() { return $('exportFormat').value; }
+// Social presets. Hold previews a crop. Apply stores that shape for the next
+// explicit Export. Neither Hold nor Apply writes a file or posts anywhere.
+// gr-format (migrated from cc-format in core.js) is the applied shape.
+let savedFormat = 'wide';
+try { savedFormat = localStorage.getItem('gr-format') || 'wide'; } catch { /* ignore */ }
+const presetSession = createPresetSession(savedFormat);
+export function exportFormat() { return presetSession.exportFormat(); }
 export function exportPreset() { return presetById(exportFormat()); }
+export function heldPreset() { return presetById(presetSession.snapshot().held); }
+export function presetSnapshot() { return presetSession.snapshot(); }
+
+function syncPresetUI() {
+  const snap = presetSession.snapshot();
+  document.querySelectorAll('#presetChoices [data-preset]').forEach(btn => {
+    const id = btn.dataset.preset;
+    const held = id === snap.held;
+    btn.classList.toggle('held', held);
+    btn.classList.toggle('is-applied', id === snap.applied);
+    btn.setAttribute('aria-checked', held ? 'true' : 'false');
+  });
+  const held = presetById(snap.held);
+  const applied = presetById(snap.applied);
+  const applyBtn = $('applyPreset');
+  applyBtn.disabled = !snap.pending;
+  applyBtn.classList.toggle('accent', snap.pending);
+  applyBtn.textContent = snap.pending ? 'Apply' : 'Applied';
+  $('presetStatus').textContent = snap.pending
+    ? `Holding ${held.ratio} ${held.label} (${held.posting}). Preview only — Apply to use it on the next export. Nothing is posted.`
+    : `${applied.ratio} ${applied.label} is applied for export (${applied.posting}). Files stay on this PC. Nothing is posted.`;
+}
+
+function renderPresetButtons() {
+  const box = $('presetChoices');
+  box.innerHTML = '';
+  for (const p of PRESETS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'preset';
+    btn.dataset.preset = p.id;
+    btn.setAttribute('role', 'radio');
+    btn.title = `${p.hint}. Hold previews this crop. Apply commits it for export. Nothing is posted.`;
+    btn.setAttribute('aria-label', `${p.ratio} ${p.label}, ${p.posting}. Hold to preview.`);
+    btn.innerHTML =
+      `<span class="glyph g-${p.id}" aria-hidden="true"></span>` +
+      `<span class="preset-text">` +
+        `<span class="preset-name">${p.ratio} ${p.label}</span>` +
+        `<span class="preset-where">${p.posting}</span>` +
+      `</span>`;
+    btn.onclick = () => {
+      presetSession.hold(p.id);
+      syncPresetUI();
+      drawOverlay();
+      btn.blur();
+      if (p.crop) toast(`${p.ratio} ${p.label} is on hold — dashed guide is a preview. Apply before export. Nothing is posted.`, false, 4000);
+    };
+    box.appendChild(btn);
+  }
+}
+
+$('applyPreset').onclick = () => {
+  const snap = presetSession.apply();
+  try { localStorage.setItem('gr-format', snap.applied); } catch { /* ignore */ }
+  syncPresetUI();
+  drawOverlay();
+  $('applyPreset').blur();
+  const p = presetById(snap.applied);
+  toast(`Applied ${p.ratio} ${p.label}. Export writes a file on this PC — nothing is posted.`, false, 3500);
+};
+
+renderPresetButtons();
+syncPresetUI();
 
 export function setIn() {
   state.inMs = Math.round(video.currentTime * 1000);
