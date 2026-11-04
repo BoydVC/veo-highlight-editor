@@ -25,7 +25,8 @@ function makePng(name, args) {
   return 'data:image/png;base64,' + fs.readFileSync(f).toString('base64');
 }
 
-async function post(url, body) {
+// export/stitch are queued jobs: post() starts one, waitJob() polls it to the end
+async function start(url, body) {
   const r = await fetch(BASE + url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -34,6 +35,35 @@ async function post(url, body) {
   if (!r.ok || j.error) throw new Error(url + ' failed: ' + (j.error || r.status));
   return j;
 }
+async function waitJob(id) {
+  for (;;) {
+    const j = await (await fetch(BASE + '/api/jobs/' + id)).json();
+    if (j.status === 'done') return j;
+    if (j.status !== 'queued' && j.status !== 'running') throw new Error(`job ${j.name} ${j.status}: ${j.error || ''}`);
+    await new Promise(r => setTimeout(r, 200));
+  }
+}
+const post = async (url, body) => waitJob((await start(url, body)).jobId);
+
+// listen to the job event stream the UI uses, remembering the highest progress seen per job
+const progressSeen = new Map();
+const events = new AbortController();
+(async () => {
+  const res = await fetch(BASE + '/api/jobs/events', { signal: events.signal });
+  const dec = new TextDecoder();
+  let buf = '';
+  for await (const chunk of res.body) {
+    buf += dec.decode(chunk, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n\n')) >= 0) {
+      const msg = buf.slice(0, i); buf = buf.slice(i + 2);
+      const data = /^data: (.*)$/m.exec(msg);
+      if (!data || msg.startsWith('event: snapshot')) continue;
+      const j = JSON.parse(data[1]);
+      if (j.status === 'running') progressSeen.set(j.id, Math.max(progressSeen.get(j.id) || 0, j.progress));
+    }
+  }
+})().catch(() => { /* aborted at the end */ });
 
 (async () => {
   // stand-in overlay art (the real app renders these on canvas)
@@ -56,6 +86,30 @@ async function post(url, body) {
     assets: { badgePng, circlePng, labelPng }, meta,
   });
   console.log('  →', r1.file);
+  const p1 = progressSeen.get(r1.id) || 0;
+  console.log(`  progress events: reached ${(p1 * 100).toFixed(0)}% while running`);
+  if (!(p1 > 0.2)) throw new Error('no progress events for export 1');
+
+  console.log('cancel: a queued export and a running one…');
+  const longClip = { name: 'Test Game Cancel', inMs: 0, outMs: 40000, label: null, anchors: [] };
+  const run1 = await start('/api/export', { videoPath, clip: longClip, assets: {}, meta: { ...meta, testRun: true } });
+  const run2 = await start('/api/export', { videoPath, clip: { ...longClip, name: 'Test Game Cancel 2' }, assets: {}, meta: { ...meta, testRun: true } });
+  const again = await start('/api/export', { videoPath, clip: longClip, assets: {}, meta: { ...meta, testRun: true } });
+  if (again.jobId !== run1.jobId) throw new Error('same output queued twice');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const getJob = async id => (await fetch(BASE + '/api/jobs/' + id)).json();
+  await fetch(BASE + '/api/jobs/' + run2.jobId, { method: 'DELETE' }); // still queued
+  while ((await getJob(run1.jobId)).status !== 'running') await sleep(100);
+  await sleep(800);
+  await fetch(BASE + '/api/jobs/' + run1.jobId, { method: 'DELETE' }); // mid-encode
+  for (const id of [run1.jobId, run2.jobId]) {
+    let j = await getJob(id);
+    while (j.status === 'running') { await sleep(100); j = await getJob(id); }
+    if (j.status !== 'cancelled') throw new Error(`${j.name}: expected cancelled, got ${j.status}`);
+  }
+  const leftovers = fs.readdirSync(path.join(__dirname, 'clips', '_test', 'YouTube')).filter(f => f.includes('Cancel'));
+  if (leftovers.length) throw new Error('cancelled export left files: ' + leftovers.join(', '));
+  console.log('  → both cancelled, no files left behind');
 
   console.log('export 2: plain cut, no overlays…');
   const r2 = await post('/api/export', {
@@ -73,16 +127,26 @@ async function post(url, body) {
   });
   console.log('  →', r3.file);
 
-  console.log('export 4: square 1:1 with tracking follow-crop…');
+  console.log('export 4: square 1:1 with tracking follow-crop, and untracked…');
   const rSq = await post('/api/export', {
     videoPath,
-    clip: { name: 'Test Game 04 Goal', inMs: 5000, outMs: 8000, label: 'Goal', anchors },
+    clip: { name: 'Test Game 04 Goal', inMs: 5000, outMs: 12000, label: 'Goal', anchors },
     assets: { badgePng, circlePng, labelPng }, meta: { testRun: true, ...meta, format: 'square' },
   });
-  console.log('  →', rSq.file);
-  if (!rSq.file.includes('Square/') || !rSq.file.includes('[1x1]')) {
-    throw new Error('square export path: ' + rSq.file);
+  const rSqPlain = await post('/api/export', {
+    videoPath,
+    clip: { name: 'Test Game 05 Shot', inMs: 20000, outMs: 22000, label: null, anchors: [], cropOffset: 0.2 },
+    assets: {}, meta: { testRun: true, ...meta, format: 'square' },
+  });
+  for (const r of [rSq, rSqPlain]) {
+    if (!/^_test\/Square\/.* \[1x1\]\.mp4$/.test(r.file)) throw new Error('square export path: ' + r.file);
   }
+  console.log('  →', rSq.file, '|', rSqPlain.file);
+  const bad = await fetch(BASE + '/api/export', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ videoPath, clip: { name: 'x', inMs: 0, outMs: 1000 }, assets: {}, meta: { ...meta, format: 'cinema' } }),
+  });
+  if (bad.status !== 400) throw new Error('unknown format should be refused, got ' + bad.status);
 
   console.log('stitch (uniform 16:9, lossless copy)…');
   const r4 = await post('/api/stitch', { testRun: true, files: [r1.file, r2.file], outName: 'Test Compilation' });
@@ -91,6 +155,17 @@ async function post(url, body) {
   console.log('stitch (mixed formats, re-encode path)…');
   const r5 = await post('/api/stitch', { testRun: true, files: [r1.file, r3.file], outName: 'Test Mixed' });
   console.log('  →', r5.file);
+
+  console.log('stitch (same size/fps, different encoder → must re-encode, not splice)…');
+  // ultrafast x264 has no CABAC, so its H.264 headers differ from any export's
+  const odd = '_test/Test Odd Encoder.mp4';
+  execFileSync(ffmpeg, ['-y', '-v', 'error', '-ss', '20', '-i', videoPath, '-t', '2',
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', path.join(__dirname, 'clips', odd)]);
+  const sigOf = f => execFileSync(ffprobe, ['-v', 'error', '-select_streams', 'v:0', '-show_data_hash', 'md5',
+    '-show_entries', 'stream=extradata_hash', '-of', 'csv=p=0', path.join(__dirname, 'clips', f)]).toString().trim();
+  const rOdd = await post('/api/stitch', { testRun: true, files: [odd, r1.file], outName: 'Test Odd Mix' });
+  if (sigOf(rOdd.file) === sigOf(odd)) throw new Error('clips from different encoders were spliced with -c copy');
+  console.log(`  → ${rOdd.file}: re-encoded`);
 
   const durOf = f => parseFloat(execFileSync(ffprobe, ['-v', 'error', '-show_entries',
     'format=duration', '-of', 'csv=p=0', path.join(__dirname, 'clips', f)]).toString());
@@ -128,8 +203,10 @@ async function post(url, body) {
 
   const v = list.files.find(f => f.name === r3.file);
   if (!v || v.width !== 1080 || v.height !== 1920) throw new Error('vertical export is not 1080x1920');
-  const sq = list.files.find(f => f.name === rSq.file);
-  if (!sq || sq.width !== 1080 || sq.height !== 1080) throw new Error('square export is not 1080x1080: ' + JSON.stringify(sq));
+  for (const r of [rSq, rSqPlain]) {
+    const s = list.files.find(f => f.name === r.file);
+    if (!s || s.width !== 1080 || s.height !== 1080) throw new Error('square export is not 1080x1080: ' + r.file);
+  }
 
   for (const f of [r1.file, r2.file, r4.file]) {
     const out = execFileSync(ffprobe, ['-v', 'error', '-show_entries',
@@ -138,9 +215,10 @@ async function post(url, body) {
   }
   ['_badge.png', '_circle.png', '_label.png', '_card.png'].forEach(f => fs.unlinkSync(path.join(__dirname, f)));
   // tidy: remove test outputs so they don't clutter the Compilation Builder
-  for (const f of [r1, r2, r3, rSq, r4, r5, r6, r7, r8].map(r => r.file)) {
+  for (const f of [r1, r2, r3, rSq, rSqPlain, r4, r5, r6, r7, r8].map(r => r.file)) {
     fs.unlinkSync(path.join(__dirname, 'clips', f));
   }
   fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true });
+  events.abort();
   console.log('ALL TESTS PASSED');
 })().catch(e => { console.error('TEST FAILED:', e.message); process.exit(1); });

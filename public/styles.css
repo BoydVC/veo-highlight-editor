@@ -132,6 +132,15 @@ button.preset.is-applied .preset-name::after {
 .g-vertical { width: 12px; height: 20px; }
 .g-square { width: 16px; height: 16px; }
 .g-wide { width: 22px; height: 13px; }
+/* background job status — the fill behind the text is the running job's progress */
+#jobsPill {
+  display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 380px;
+  padding: 3px 4px 3px 12px; border: 1px solid var(--accent-a55); border-radius: 999px;
+  font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums;
+  background: linear-gradient(90deg, var(--accent-a22) calc(var(--p, 0) * 100%), transparent 0);
+}
+#jobsText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#jobsPill .icon-btn { width: 22px; height: 22px; padding: 0; border-radius: 50%; font-size: 11px; }
 
 /* ---- main layout ----------------------------------------------------------- */
 main { flex: 1; display: flex; min-height: 0; }
@@ -145,7 +154,7 @@ main { flex: 1; display: flex; min-height: 0; }
 #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #videoWrap.tracking #overlay { pointer-events: auto; cursor: crosshair; }
 #videoWrap.tracking { border-color: var(--accent); }
-#videoWrap.cropAdj { cursor: ew-resize; } /* 9:16 or 1:1: drag to shift the crop window */
+#videoWrap.cropAdj { cursor: ew-resize; } /* 9:16 / 1:1: drag to shift the crop window */
 
 #trackBanner {
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
@@ -261,7 +270,10 @@ main { flex: 1; display: flex; min-height: 0; }
 .clip .status { grid-column: 1 / -1; font-size: 11px; margin-top: 2px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clip .status.ok { color: var(--in); }
 .clip .status.err { color: var(--out); white-space: normal; }
-.clip .status.busy { color: var(--warn); }
+.clip .status.busy {
+  color: var(--warn); border-radius: 3px; padding: 0 4px; font-variant-numeric: tabular-nums;
+  background: linear-gradient(90deg, var(--accent-a22) calc(var(--p, 0) * 100%), transparent 0);
+}
 
 /* ---- dialogs --------------------------------------------------------------- */
 dialog {

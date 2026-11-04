@@ -1,5 +1,7 @@
 # 🎬 GameReels
 
+![GameReels](screenshots/00-best-home.png)
+
 Turn full-game Veo film into social clips — vertical Reels, square feed posts, and 16:9 YouTube. **Best for lacrosse and soccer.**
 Keyboard-first clipping, hotkey labels, click-to-track player badge overlays, one-button export and stitching.
 See `PLAN.md` for the design.
@@ -29,7 +31,7 @@ does both: it opens the browser and starts the server.
 | Track the player | `T` → click their feet → video auto-advances → click again → `Esc` when done (`U` undoes) |
 | Check it | ▶ Review on the clip — overlay preview plays live |
 | Pick a preset | **Social presets** bar: hold **9:16 Vertical**, **1:1 Square**, or **16:9 Landscape** to preview the crop. **Apply** commits that shape for the next export. Hold and Apply do not post or share. |
-| Export | `E` (or Export per clip, or **Export All**) writes an MP4 on this PC into `clips/Reels/`, `clips/Square/`, or `clips/YouTube/`. Nothing is posted. |
+| Export | `E` (or Export per clip, or **Export All**) writes an MP4 on this PC into `clips/YouTube/`, `clips/Reels/`, or `clips/Square/` in the shape you Applied. Exports queue up and run in the background — keep clipping; progress shows on each clip and in the top bar, and **Cancel** / ✕ stops one. Nothing is posted. |
 | Reorder | ▲▼ on a clip (or `Alt+↑↓`) — sets the numbering used in export filenames |
 | Compilation | **🎞 Compilation Builder** — all exported clips from every game: check, reorder with ▲▼, stitch |
 | Transitions | builder dropdown: hard cut, crossfade, fade through black, slide, circle reveal (0.5 s) |
@@ -38,16 +40,17 @@ does both: it opens the browser and starts the server.
 ## Social export presets
 
 Preview a shape, then **Apply**. The dashed guide is only a preview until you Apply.
-Export uses the applied preset and writes a file on this PC. GameReels does not post,
-share, or invent footage — every frame comes from the game video you already have.
+Export uses the applied preset and writes a file on this PC. GameReels does not post
+or invent footage — every frame comes from the game video you already have.
 
 - **9:16 Vertical** — 1080×1920, for lacrosse and soccer highlights on Instagram Reels,
-  YouTube Shorts, and TikTok. The crop **auto-follows the tracked player** (smooth
-  camera-style panning). Untracked clips center-crop. Files land in `clips/Reels/`
-  with a ` [9x16]` suffix.
-- **1:1 Square** — 1080×1080, for Instagram and Facebook feed posts. On typical Veo
-  16:9 film the square uses the full frame height and crops the sides, following the
-  tracked player the same way. Files land in `clips/Square/` with a ` [1x1]` suffix.
+  YouTube Shorts, and TikTok. The crop **auto-follows the tracked player** using the
+  tracking anchors (with smooth camera-style panning); untracked clips center-crop.
+  Files land in `clips/Reels/` with a ` [9x16]` suffix.
+- **1:1 Square** — 1080×1080, for Instagram and Facebook feed posts. It follows the
+  tracked player the same way. On 16:9 Veo film the square is the full frame height, so
+  it pans side to side; when a source is taller than the square, the crop also pans
+  vertically. Files land in `clips/Square/` with a ` [1x1]` suffix.
 - **16:9 Landscape** — the full Veo frame, usually 1920×1080, for YouTube. No crop.
   Files land in `clips/YouTube/`.
 
@@ -56,12 +59,18 @@ to shift it off the tracked player when the action is beside them (double-click 
 the shift is saved per clip). Holding a preset does not export. Apply does not export.
 Only Export, Export All, or `E` writes a file, and only in the shape you Applied.
 
-- Stitching same-shape clips is lossless; mixing shapes re-encodes with padding (the
-  builder warns you — usually keep one preset per compilation). Picking a transition or
+- Exports encode on the **NVIDIA GPU (NVENC)** when there is one — about 1.8× faster than the
+  CPU on this PC — and fall back to the CPU (libx264) automatically; the server prints which one
+  it picked at startup. `set CC_ENCODER=cpu` before `npm start` forces the CPU.
+- Vertical exports get a ` [9x16]` suffix and square ones ` [1x1]`; exports are sorted into
+  `clips/YouTube/`, `clips/Reels/` or `clips/Square/` by format.
+- Stitching same-format clips from the same encoder is lossless (GPU and CPU exports have
+  different H.264 headers, so mixing them re-encodes); mixing formats re-encodes with padding (the
+  builder warns you — usually keep one format per compilation). Picking a transition or
   adding intro/outro cards always re-encodes (that's what blends the frames).
 - Intro/outro cards: check the box in the builder, pick a photo, fill in the text
   (use `|` in the title for a line break). The card matches the compilation's shape —
-  16:9 and 1:1 get the left text panel, 9:16 gets the bottom-third layout. Text is remembered;
+  16:9 gets the left text panel, 9:16 and 1:1 get the bottom-third layout. Text is remembered;
   re-pick the photo each session.
 
 Everything autosaves per game into `projects/` — close the browser, come back later,
@@ -84,12 +93,12 @@ devices on your network can't reach it.
 ## Folders
 
 - `games/` — put full-game video files here
-- `clips/YouTube/`, `clips/Reels/`, and `clips/Square/` — exported clips by preset; stitched compilations land in `clips/`
+- `clips/YouTube/`, `clips/Reels/` and `clips/Square/` — exported clips by format; stitched compilations land in `clips/`
 - `projects/` — autosaved work (one JSON per game; safe to back up)
 
 ## Health check
 
-`node test-presets.js` checks preset labels plus Hold/Apply (no server needed).
+`node test-presets.js` checks preset labels, crop math, and Hold/Apply (no server needed).
 `node test-export.js` (with the server running) round-trips a tracked export,
 a plain cut, a 9:16 export, a 1:1 export, and a stitch against a synthetic test video;
 `node test-ui.js` drives the real UI with Playwright, including preset hold and Apply.

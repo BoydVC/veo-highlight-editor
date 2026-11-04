@@ -4,8 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const ffprobePath = require('ffprobe-static').path;
-const { exportClip, stitchClips, probeMeta } = require('./lib/exporter');
-const { presetById } = require('./lib/presets');
+const { exportClip, stitchClips, probeMeta, encoderName } = require('./lib/exporter');
+const jobs = require('./lib/jobs');
+const presetsReady = import('./public/js/presets.js'); // export formats, shared with the browser
 
 const ROOT = __dirname;
 const GAMES_DIR = path.join(ROOT, 'games');
@@ -30,17 +31,11 @@ function gamePath(p) {
 
 const app = express();
 app.use(express.json({ limit: '80mb' })); // overlay PNGs ride along with export requests
-// no-cache: the frontend changes between sessions and a stale cached app.js
+// no-cache: the frontend changes between sessions and a stale cached module
 // renders stale overlay art (browser draws the badge/label PNGs)
 app.use(express.static(path.join(ROOT, 'public'), {
   setHeaders: res => res.setHeader('Cache-Control', 'no-cache'),
 }));
-// Shared preset table (Hold/Apply in the browser, crop math on export).
-app.get('/presets.js', (req, res) => {
-  res.setHeader('Cache-Control', 'no-cache');
-  res.type('application/javascript');
-  res.sendFile(path.join(ROOT, 'lib', 'presets.js'));
-});
 
 // ---- video library -------------------------------------------------------
 app.get('/api/videos', (req, res) => {
@@ -156,28 +151,40 @@ app.post('/api/project', (req, res) => {
   res.json({ ok: true });
 });
 
-// ---- export ----------------------------------------------------------------
+// ---- export (queued — see lib/jobs.js) ---------------------------------------
 function safeName(s) {
   return s.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'clip';
 }
+const clipsRel = full => path.relative(CLIPS_DIR, full).split(path.sep).join('/');
+
+// both return { jobId, file } right away; progress and the result arrive on /api/jobs/events
 app.post('/api/export', async (req, res) => {
   try {
-    const { clip, assets, meta } = req.body;
+    const { clip, assets, meta, ref } = req.body;
     const videoPath = gamePath(req.body.videoPath);
     if (!videoPath) throw new Error('game video not found in games folder');
-    // Local file only. The preset was chosen with Apply in the UI; this route
-    // does not post, share, or generate frames that were not in the game video.
-    const preset = presetById((meta && meta.format) || 'wide');
-    const suffix = preset.suffix;
+    // folder + filename suffix per format: YouTube/, Reels/ " [9x16]", Square/ " [1x1]"
+    const preset = (await presetsReady).presetById(meta && meta.format);
     const subdir = (meta && meta.testRun ? '_test/' : '') + preset.folder;
     fs.mkdirSync(path.join(CLIPS_DIR, subdir), { recursive: true });
-    const outPath = path.join(CLIPS_DIR, subdir, safeName(clip.name) + suffix + '.mp4');
-    await exportClip({ videoPath, outPath, clip, assets, meta });
-    res.json({ ok: true, file: subdir + '/' + path.basename(outPath) });
+    const outPath = path.join(CLIPS_DIR, subdir, safeName(clip.name) + preset.suffix + '.mp4');
+    const job = jobs.enqueue({
+      type: 'export', name: clip.name, file: clipsRel(outPath), outPath, ref,
+      run: o => exportClip({ videoPath, clip, assets, meta, ...o }),
+    });
+    res.json({ jobId: job.id, file: job.file });
   } catch (e) {
-    console.error('export failed:', e);
-    res.status(500).json({ error: String(e.message || e) });
+    res.status(400).json({ error: String(e.message || e) });
   }
+});
+
+app.get('/api/jobs/events', jobs.subscribe);
+app.get('/api/jobs/:id', (req, res) => {
+  const j = jobs.get(req.params.id);
+  j ? res.json(j) : res.status(404).json({ error: 'no such job' });
+});
+app.delete('/api/jobs/:id', (req, res) => {
+  jobs.cancel(req.params.id) ? res.json({ ok: true }) : res.status(404).json({ error: 'no such job' });
 });
 
 // exported clip list with probed metadata (cached by name+mtime) — feeds the
@@ -194,7 +201,7 @@ function listExportNames(includeTest) {
       if (e.isDirectory()) {
         if (rel === '_test') { if (includeTest) walk(path.join(dir, e.name), rel + '/', 2); continue; }
         if (maxDepth > 0) walk(path.join(dir, e.name), rel + '/', maxDepth - 1);
-      } else if (e.name.toLowerCase().endsWith('.mp4')) {
+      } else if (/(?<!\.part)\.mp4$/i.test(e.name)) { // .part.mp4 = export still being written
         names.push(rel);
       }
     }
@@ -219,7 +226,7 @@ app.get('/api/exports', async (req, res) => {
   res.json({ clipsDir: CLIPS_DIR, files });
 });
 
-app.post('/api/stitch', async (req, res) => {
+app.post('/api/stitch', (req, res) => {
   try {
     const { files, outName, transition, transitionSec, intro, outro } = req.body;
     const inputs = files.map(f => {
@@ -231,11 +238,13 @@ app.post('/api/stitch', async (req, res) => {
     const outDir = req.body.testRun ? TEST_DIR : CLIPS_DIR;
     fs.mkdirSync(outDir, { recursive: true });
     const outPath = path.join(outDir, safeName(outName || 'Highlights') + '.mp4');
-    await stitchClips(inputs, outPath, { transition, transitionSec, intro, outro });
-    res.json({ ok: true, file: path.relative(CLIPS_DIR, outPath).split(path.sep).join('/') });
+    const job = jobs.enqueue({
+      type: 'stitch', name: outName || 'Highlights', file: clipsRel(outPath), outPath,
+      run: o => stitchClips(inputs, o.outPath, { transition, transitionSec, intro, outro, ...o }),
+    });
+    res.json({ jobId: job.id, file: job.file });
   } catch (e) {
-    console.error('stitch failed:', e);
-    res.status(500).json({ error: String(e.message || e) });
+    res.status(400).json({ error: String(e.message || e) });
   }
 });
 
@@ -244,5 +253,5 @@ app.listen(PORT, HOST, () => {
   console.log('  GameReels is running:  http://localhost:' + PORT + '  (this PC only)');
   console.log('  Drop full-game video files into:  ' + GAMES_DIR);
   console.log('  Exported clips land in:           ' + CLIPS_DIR);
-  console.log('');
+  encoderName().then(n => console.log('  Video encoder:                    ' + n + '\n'));
 });
