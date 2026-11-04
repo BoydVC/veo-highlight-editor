@@ -96,8 +96,42 @@ button.accent kbd { color: #fff; background: rgba(255,255,255,.14); border-color
 .spacer { flex: 1; }
 .meta { color: var(--text-3); font-size: 12px; }
 #videoMeta { font-family: var(--mono); font-size: 11.5px; letter-spacing: .01em; }
-#exportFormat { font-weight: 600; }
 #topbar button, #topbar select { flex: none; }
+
+/* Social presets — Hold previews a crop; Apply commits it. Export is separate. */
+#presetBar {
+  flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+}
+.preset-lead { display: flex; flex-direction: column; line-height: 1.2; min-width: 112px; }
+.preset-lead strong { font-size: 12px; letter-spacing: .02em; }
+.preset-lead span { color: var(--text-3); font-size: 11px; }
+#presetChoices { display: flex; gap: 6px; flex-wrap: wrap; }
+#presetStatus { flex: 1; min-width: 220px; margin: 0; line-height: 1.35; }
+#applyPreset { min-width: 92px; }
+#applyPreset:disabled { opacity: .55; cursor: default; transform: none; }
+button.preset {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 10px 5px 8px; background: var(--surface-1); text-align: left;
+}
+button.preset.held {
+  border-color: var(--gold); background: #2a2616;
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+button.preset.held .glyph { color: var(--gold); }
+button.preset .preset-text { display: flex; flex-direction: column; line-height: 1.2; }
+button.preset .preset-name { font-weight: 700; font-size: 12.5px; }
+button.preset .preset-where { color: var(--text-3); font-size: 11px; font-weight: 500; }
+button.preset.is-applied .preset-name::after {
+  content: ' · in use'; color: var(--in); font-weight: 600; font-size: 10.5px;
+}
+.glyph {
+  display: inline-block; border: 1.5px solid currentColor; border-radius: 2px;
+  opacity: .9; flex: none;
+}
+.g-vertical { width: 12px; height: 20px; }
+.g-square { width: 16px; height: 16px; }
+.g-wide { width: 22px; height: 13px; }
 /* background job status — the fill behind the text is the running job's progress */
 #jobsPill {
   display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 380px;

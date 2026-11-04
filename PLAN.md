@@ -139,7 +139,7 @@ public/js/         frontend as native ES modules (no build step), entry point ma
   settings.js      badge & label settings dialog
   keyboard.js      shortcuts
   spline.js        Catmull-Rom spline shared by the preview, the exporter and tools/
-  presets.js       export formats (16:9 / 9:16 / 1:1) and crop math, shared with the server
+  presets.js       social presets (Hold/Apply, 16:9 / 9:16 / 1:1) and crop math, shared with the server
 public/styles.css  dark, keyboard-first UI
 games/             drop full-game files here (the server only serves videos from this folder)
 projects/          autosaved sidecar project JSON per video
@@ -147,16 +147,19 @@ clips/             exported clips + stitched compilations
 ```
 
 ### Output formats (added after v1)
-Three export formats, selectable in the top bar and defined once in `public/js/presets.js`
-(shared by the browser and the server). **16:9** keeps the full 1920×1080 Veo frame
-(YouTube's recommended spec). **9:16** produces 1080×1920 for Instagram Reels / YouTube
-Shorts / TikTok by cropping a vertical window that *auto-follows the tracked player* —
-the per-frame crop x comes from the same spline as the badge, smoothed with a
-forward+backward exponential filter so it pans like a camera operator instead of jittering.
-**1:1** (Oct 2026) produces 1080×1080 for the Instagram/Facebook feed with the same follow-crop;
+Three social presets on the **Social presets** bar, defined once in `public/js/presets.js`
+(shared by the browser and the server). **Hold** previews a crop (dashed guide, labeled
+"preview" until it is applied). **Apply** commits that shape for the next explicit export
+and remembers it in `gr-format`. Hold and Apply do not write a file or post anywhere.
+Export uses the applied preset even if another shape is still on hold, and says so.
+**16:9 Landscape** keeps the full 1920×1080 Veo frame (YouTube's recommended spec).
+**9:16 Vertical** produces 1080×1920 for Instagram Reels / YouTube Shorts / TikTok by
+cropping a vertical window that *auto-follows the tracked player* — the per-frame crop x
+comes from the same spline as the badge, smoothed with a forward+backward exponential
+filter so it pans like a camera operator instead of jittering.
+**1:1 Square** produces 1080×1080 for the Instagram/Facebook feed with the same follow-crop;
 the crop also pans vertically when it's shorter than the source (never on 16:9 Veo film, where
-the square is full height). Ported from the Cursor draft PR #2 without its Hold/Apply picker,
-which showed one shape's crop guide while exporting another.
+the square is full height).
 The **Compilation Builder** lists every exported clip across all games with format chips,
 supports re-ordering, stitches same-format clips losslessly (`-c copy`) and falls back to a
 re-encode with padding when formats are mixed.

@@ -15,8 +15,21 @@ if (!fs.existsSync(testGame)) {
     '-c:a', 'aac', '-shortest', testGame]);
 }
 
+async function launchBrowser() {
+  const attempts = [
+    () => chromium.launch({ channel: 'msedge', headless: true }),
+    () => chromium.launch({ channel: 'chrome', headless: true }),
+    () => chromium.launch({ headless: true }),
+  ];
+  let last;
+  for (const go of attempts) {
+    try { return await go(); } catch (e) { last = e; }
+  }
+  throw last;
+}
+
 (async () => {
-  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  const browser = await launchBrowser();
   const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -83,23 +96,81 @@ if (!fs.existsSync(testGame)) {
   await page.waitForSelector('#trackBanner.hidden', { state: 'attached' });
   console.log('tracking saved:', await page.$eval('.clip .track-ok', el => el.textContent));
 
-  // export through the UI
+  // social presets: hold previews, Apply commits, neither one exports or posts
+  const posts = [];
+  page.on('request', req => { if (req.method() === 'POST') posts.push(req.url()); });
+
+  const labels = await page.$$eval('#presetChoices [data-preset]', els => els.map(el => ({
+    id: el.dataset.preset,
+    text: el.innerText.replace(/\s+/g, ' ').trim(),
+    applied: el.classList.contains('is-applied'),
+  })));
+  console.log('presets:', labels.map(l => l.id + ' ' + l.text).join(' | '));
+  if (labels.map(l => l.id).join(',') !== 'vertical,square,wide') {
+    throw new Error('preset order: ' + labels.map(l => l.id).join(','));
+  }
+  const byId = Object.fromEntries(labels.map(l => [l.id, l]));
+  if (!/9:16/.test(byId.vertical.text) || !/Reels/.test(byId.vertical.text) || !/TikTok/.test(byId.vertical.text)) {
+    throw new Error('vertical label: ' + byId.vertical.text);
+  }
+  if (!/1:1/.test(byId.square.text) || !/feed/i.test(byId.square.text)) {
+    throw new Error('square label: ' + byId.square.text);
+  }
+  if (!/16:9/.test(byId.wide.text) || !/YouTube/.test(byId.wide.text) || !byId.wide.applied) {
+    throw new Error('landscape should start applied: ' + byId.wide.text);
+  }
+
+  await page.click('#presetChoices [data-preset=square]');
+  const holding = await page.$eval('#presetStatus', el => el.textContent);
+  console.log('hold status:', holding);
+  if (!/Holding 1:1 Square/.test(holding) || !/Nothing is posted/.test(holding)) {
+    throw new Error('hold copy: ' + holding);
+  }
+  if (await page.$eval('#presetChoices [data-preset=square]', el => el.classList.contains('is-applied'))) {
+    throw new Error('square hold was applied without Apply');
+  }
+  if (!await page.$eval('#presetChoices [data-preset=wide]', el => el.classList.contains('is-applied'))) {
+    throw new Error('applied preset changed on hold');
+  }
+  await page.waitForTimeout(400);
+  if (posts.some(u => u.includes('/api/export'))) throw new Error('hold triggered an export');
+
+  // export through the UI while square is only on hold — must stay 16:9
   await page.click('[data-act=export]');
   await page.waitForSelector('.clip .status.ok', { timeout: 120000 });
-  console.log('export:', await page.$eval('.clip .status', el => el.textContent));
+  const wideExport = await page.$eval('.clip .status', el => el.textContent);
+  console.log('export:', wideExport);
+  if (/Square\/|\[1x1\]/.test(wideExport)) throw new Error('hold changed the export: ' + wideExport);
 
-  // 9:16 mode — crop guide must render without errors
-  await page.selectOption('#exportFormat', 'vertical');
-  await page.waitForTimeout(500);
-  console.log('vertical mode: crop guide drawn, no errors so far:', errors.length === 0);
+  // 9:16 hold draws the crop guide and leaves landscape applied
+  await page.click('#presetChoices [data-preset=vertical]');
+  await page.waitForTimeout(400);
+  const verticalHold = await page.$eval('#presetStatus', el => el.textContent);
+  console.log('vertical hold:', verticalHold);
+  if (!/Holding 9:16 Vertical/.test(verticalHold) || !/Nothing is posted/.test(verticalHold)) {
+    throw new Error('vertical hold copy: ' + verticalHold);
+  }
+  if (!await page.$eval('#presetChoices [data-preset=wide]', el => el.classList.contains('is-applied'))) {
+    throw new Error('vertical hold cleared the applied landscape preset');
+  }
+  console.log('vertical preview drawn, no errors so far:', errors.length === 0);
 
-  // 1:1 mode — guide renders, and an export through the UI lands in Square/ as [1x1]
-  await page.selectOption('#exportFormat', 'square');
-  await page.waitForTimeout(500);
+  // Apply square, then an export through the UI lands in Square/ as [1x1]
+  await page.click('#presetChoices [data-preset=square]');
+  await page.click('#applyPreset');
+  const appliedCopy = await page.$eval('#presetStatus', el => el.textContent);
+  console.log('apply status:', appliedCopy);
+  if (!/1:1 Square is applied/.test(appliedCopy) || !/Nothing is posted/.test(appliedCopy)) {
+    throw new Error('apply copy: ' + appliedCopy);
+  }
+  if (posts.some(u => u.includes('/api/export') && posts.filter(u => u.includes('/api/export')).length > 1)) {
+    throw new Error('Apply triggered an export');
+  }
   await page.click('[data-act=export]');
   await page.waitForFunction(() => /Square\/.*\[1x1\]\.mp4/.test((document.querySelector('.clip .status.ok') || {}).textContent || ''), null, { timeout: 120000 });
   console.log('square export:', await page.$eval('.clip .status', el => el.textContent));
-  await page.selectOption('#exportFormat', 'wide');
+  await page.click('#presetChoices [data-preset=wide]');
+  await page.click('#applyPreset');
 
   // settings dialog: change the number, Save → stored and the badge redrawn
   await page.click('#settingsBtn');
