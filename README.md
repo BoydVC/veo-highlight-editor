@@ -1,5 +1,7 @@
 # 🎬 GameReels
 
+![GameReels](screenshots/00-best-home.png)
+
 Turn full-game Veo film into social clips — Reels, YouTube Shorts, and 16:9. **Best for lacrosse and soccer.**
 Keyboard-first clipping, hotkey labels, click-to-track player badge overlays, one-button export and stitching.
 See `PLAN.md` for the design.
@@ -43,8 +45,8 @@ A label that is not one of the built-in play names stays off the sample caption 
 | Share | **Share** copies the caption or opens a placeholder. Nothing is uploaded. |
 | Track the player | `T` → click their feet → video auto-advances → click again → `Esc` when done (`U` undoes) |
 | Check it | ▶ Review on the clip — overlay preview plays live |
-| Pick a format | top-bar selector: **16:9 · YouTube** (1920×1080) or **9:16 · Reels** (1080×1920) |
-| Export | `E` (or Export per clip, or **Export All**) → MP4s land in `clips/YouTube/` or `clips/Reels/` by format |
+| Pick a format | top-bar selector: **16:9 · YouTube** (1920×1080), **9:16 · Reels** (1080×1920) or **1:1 · Square** (1080×1080) |
+| Export | `E` (or Export per clip, or **Export All**) → MP4s land in `clips/YouTube/`, `clips/Reels/` or `clips/Square/` by format. Exports queue up and run in the background — keep clipping; progress shows on each clip and in the top bar, and **Cancel** / ✕ stops one |
 | Reorder | ▲▼ on a clip (or `Alt+↑↓`) — sets the numbering used in export filenames |
 | Compilation | **🎞 Compilation Builder** — all exported clips from every game: check, reorder with ▲▼, stitch |
 | Transitions | builder dropdown: hard cut, crossfade, fade through black, slide, circle reveal (0.5 s) |
@@ -59,14 +61,21 @@ A label that is not one of the built-in play names stays off the sample caption 
   player shows exactly what the crop will keep — **drag the video left/right** to shift the
   crop off the tracked player when the action is beside them (double-click to recenter;
   the shift is saved per clip).
-- Vertical exports get a ` [9x16]` suffix, and exports are sorted into `clips/YouTube/`
-  or `clips/Reels/` by format.
-- Stitching same-format clips is lossless; mixing formats re-encodes with padding (the
+- **1:1 (Instagram / Facebook feed)** — 1080×1080 square, cropped the same way: it follows the
+  tracked player, shows a dashed guide, and can be dragged left/right. On 16:9 Veo film the
+  square is the full frame height, so it pans side to side.
+- Exports encode on the **NVIDIA GPU (NVENC)** when there is one — about 1.8× faster than the
+  CPU on this PC — and fall back to the CPU (libx264) automatically; the server prints which one
+  it picked at startup. `set CC_ENCODER=cpu` before `npm start` forces the CPU.
+- Vertical exports get a ` [9x16]` suffix and square ones ` [1x1]`; exports are sorted into
+  `clips/YouTube/`, `clips/Reels/` or `clips/Square/` by format.
+- Stitching same-format clips from the same encoder is lossless (GPU and CPU exports have
+  different H.264 headers, so mixing them re-encodes); mixing formats re-encodes with padding (the
   builder warns you — usually keep one format per compilation). Picking a transition or
   adding intro/outro cards always re-encodes (that's what blends the frames).
 - Intro/outro cards: check the box in the builder, pick a photo, fill in the text
   (use `|` in the title for a line break). The card matches the compilation's shape —
-  16:9 gets the left text panel, 9:16 gets the bottom-third layout. Text is remembered;
+  16:9 gets the left text panel, 9:16 and 1:1 get the bottom-third layout. Text is remembered;
   re-pick the photo each session.
 
 Everything autosaves per game into `projects/` — close the browser, come back later,
@@ -89,13 +98,14 @@ devices on your network can't reach it.
 ## Folders
 
 - `games/` — put full-game video files here
-- `clips/YouTube/` and `clips/Reels/` — exported clips by format; stitched compilations land in `clips/`
+- `clips/YouTube/`, `clips/Reels/` and `clips/Square/` — exported clips by format; stitched compilations land in `clips/`
 - `projects/` — autosaved work (one JSON per game; safe to back up)
 
 ## Health check
 
 `node test-captions.js` checks the three EXAMPLE presets, Hold versus Apply, and the share-intent placeholder (no server).
 `node test-gates.js` checks that `invent_upload`, `auto_post`, and `share_external` stay **403** (it starts the server if needed).
+`node test-presets.js` checks the export-format crop math (no server needed).
 `node test-export.js` (with the server running) round-trips a tracked export,
 a plain cut, a caption sidecar, and a stitch against a synthetic test video; `node test-ui.js` drives the real UI
 with Playwright, including hold, Apply, and the share sheet. Exports land in `clips/` or `clips/_test/` —

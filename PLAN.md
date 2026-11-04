@@ -78,6 +78,23 @@ per-frame x/y from the spline and feeds ffmpeg a `sendcmd` script driving two `o
 filters — buttery motion, no per-frame image sequence needed. The label banner overlays
 top-center for the first 3 s with a fade.
 
+### Export queue
+Exports and stitches are jobs on the server (`lib/jobs.js`), run one at a time — a full-frame
+encode already uses every core. `POST /api/export` / `/api/stitch` return a job id at once; the
+browser follows `/api/jobs/events` (Server-Sent Events: a snapshot, then one message per change)
+for progress parsed from ffmpeg's `-progress` output, and `DELETE /api/jobs/:id` cancels (kills
+ffmpeg). Output is written as `<name>.part.mp4` and renamed when done, so the Compilation Builder
+never lists a half-written file. A clip remembers its job id in the project, so a reloaded page
+picks the progress back up.
+
+### Encoder
+`lib/exporter.js` picks NVENC (`h264_nvenc`, preset p5, VBR CQ 19, High profile) when a one-off test
+encode succeeds, otherwise libx264 (veryfast, CRF 18); `CC_ENCODER=cpu` forces libx264. If an NVENC
+encode fails mid-job it is redone once on the CPU. Measured on the GTX 980 Ti / 4-core PC (Oct 2026):
+a 40 s tracked export takes 5.7 s (16:9) / 7.3 s (9:16) on NVENC vs 10.7 s / 13.2 s on libx264.
+Because the two encoders write different SPS/PPS headers, the lossless `-c copy` stitch also requires
+matching H.264 header fingerprints (ffprobe `extradata_hash`); otherwise it re-encodes.
+
 ### Persistence
 Every video gets a sidecar project file (`projects/<video name>.json`) — clips, labels,
 anchors — autosaved on every change. Close the browser mid-game, pick up where you left off.
@@ -107,8 +124,22 @@ Badge/label settings live in localStorage.
 ```
 server.js          Express server: streaming, probe, project save/load, export, stitch
 lib/exporter.js    ffmpeg command builder: cut + sendcmd tracking + label overlay
+lib/jobs.js        export/stitch queue: one ffmpeg at a time, progress over SSE, cancel
 public/index.html  single-page UI
-public/app.js      all frontend logic
+public/js/         frontend as native ES modules (no build step), entry point main.js:
+  core.js          DOM handles, app state, small helpers
+  project.js       game list, loading a game, project autosave
+  player.js        render loop, overlay preview, 9:16 / 1:1 crop drag, transport, in/out
+  timeline.js      zoomable timeline canvas + divider
+  clips.js         clip list, thumbnails, nudge/reorder/rename, labels
+  tracking.js      click-to-track mode
+  art.js           badge / foot circle / label banner art
+  export.js        export queue client (jobs, progress, cancel, Export All)
+  builder.js       Compilation Builder + intro/outro cards
+  settings.js      badge & label settings dialog
+  keyboard.js      shortcuts
+  spline.js        Catmull-Rom spline shared by the preview, the exporter and tools/
+  presets.js       export formats (16:9 / 9:16 / 1:1) and crop math, shared with the server
 public/styles.css  dark, keyboard-first UI
 games/             drop full-game files here (the server only serves videos from this folder)
 projects/          autosaved sidecar project JSON per video
@@ -116,11 +147,16 @@ clips/             exported clips + stitched compilations
 ```
 
 ### Output formats (added after v1)
-Two export formats, selectable in the top bar. **16:9** keeps the full 1920×1080 Veo frame
+Three export formats, selectable in the top bar and defined once in `public/js/presets.js`
+(shared by the browser and the server). **16:9** keeps the full 1920×1080 Veo frame
 (YouTube's recommended spec). **9:16** produces 1080×1920 for Instagram Reels / YouTube
 Shorts / TikTok by cropping a vertical window that *auto-follows the tracked player* —
 the per-frame crop x comes from the same spline as the badge, smoothed with a
 forward+backward exponential filter so it pans like a camera operator instead of jittering.
+**1:1** (Oct 2026) produces 1080×1080 for the Instagram/Facebook feed with the same follow-crop;
+the crop also pans vertically when it's shorter than the source (never on 16:9 Veo film, where
+the square is full height). Ported from the Cursor draft PR #2 without its Hold/Apply picker,
+which showed one shape's crop guide while exporting another.
 The **Compilation Builder** lists every exported clip across all games with format chips,
 supports re-ordering, stitches same-format clips losslessly (`-c copy`) and falls back to a
 re-encode with padding when formats are mixed.
@@ -149,7 +185,7 @@ Three sample captions sit under the label bar: **Short** (100 characters or fewe
 ### UI refresh (Sept 2026)
 Visual pass only — no behavior changes, all IDs/classes the tests rely on kept. Neutral-pro dark
 theme (near-black canvas, layered grey surfaces, single cool-blue accent) driven by CSS tokens in
-`styles.css`; the timeline canvas reads the same tokens (`TL` in app.js) so it can't drift from
+`styles.css`; the timeline canvas reads the same tokens (`TL` in public/js/timeline.js) so it can't drift from
 the theme. Transport is a centered icon cluster with inline SVGs, hotkeys appear as `<kbd>` chips,
 clip cards show a frame grab at the in-point (grabbed on a hidden `<video>`, kept in memory for the
 session, keyed by id+inMs so a nudged in-point refreshes it), toasts sit bottom-right, focus rings

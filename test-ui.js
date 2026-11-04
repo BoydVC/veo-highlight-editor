@@ -41,8 +41,15 @@ async function launchBrowser() {
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 
+  // settings saved under the pre-rename cc-* key must carry over to gr-*
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('gr-settings')) localStorage.setItem('cc-settings', JSON.stringify({ name: 'OLDNAME', number: '7' }));
+  });
   await page.goto('http://localhost:4242/?testRun=1');
   await page.waitForSelector('#videoSelect option:nth-child(2)', { state: 'attached' });
+  const carried = await page.evaluate(() => JSON.parse(localStorage.getItem('gr-settings') || '{}').name);
+  if (carried !== 'OLDNAME') throw new Error('old cc-settings were not carried over: ' + carried);
+  console.log('old settings carried over:', carried);
 
   // load the test game (by name — never a real game file)
   await page.evaluate(() => {
@@ -183,13 +190,30 @@ async function launchBrowser() {
   await page.selectOption('#exportFormat', 'vertical');
   await page.waitForTimeout(500);
   console.log('vertical mode: crop guide drawn, no errors so far:', errors.length === 0);
+
+  // 1:1 mode — guide renders, and an export through the UI lands in Square/ as [1x1]
+  await page.selectOption('#exportFormat', 'square');
+  await page.waitForTimeout(500);
+  await page.click('[data-act=export]');
+  await page.waitForFunction(() => /Square\/.*\[1x1\]\.mp4/.test((document.querySelector('.clip .status.ok') || {}).textContent || ''), null, { timeout: 120000 });
+  console.log('square export:', await page.$eval('.clip .status', el => el.textContent));
   await page.selectOption('#exportFormat', 'wide');
+
+  // settings dialog: change the number, Save → stored and the badge redrawn
+  await page.click('#settingsBtn');
+  await page.fill('#setNumber', '12');
+  await page.click('#saveSettings');
+  await page.waitForFunction(() => (JSON.parse(localStorage.getItem('gr-settings') || '{}')).number === '12');
+  console.log('settings saved:', await page.$eval('#toast', el => el.textContent));
 
   // compilation builder lists the export with format chip
   await page.click('#builderBtn');
   await page.waitForSelector('.brow');
   const rows = await page.$$eval('.brow', els => els.map(el => el.textContent.trim()));
   console.log('builder rows:', rows.length);
+  const chips = await page.$$eval('.brow .chip', els => els.map(el => el.textContent).sort());
+  if (chips.join() !== '16:9,1:1') throw new Error('builder chips: ' + chips.join()); // sorted as text
+  console.log('builder chips:', chips.join(' '), '| warning:', await page.$eval('#builderWarn', el => el.textContent.slice(0, 30)));
   await page.click('#closeBuilder');
 
   // reload — project should restore from autosave
@@ -204,6 +228,41 @@ async function launchBrowser() {
   if (!restored.startsWith('EXAMPLE') || /Jamie|Skyhawk/.test(restored)) {
     throw new Error('restored caption: ' + restored);
   }
+
+  // edits inside the 700 ms autosave delay: a reload must keep them, and switching games
+  // must not write this game's clips into the other game's project
+  const gameB = path.join(__dirname, 'games', 'Test Game B.mp4');
+  fs.copyFileSync(testGame, gameB);
+  const projectOf = name => page.evaluate(async n => {
+    const opt = [...document.getElementById('videoSelect').options].find(o => o.textContent.startsWith(n + ' ('));
+    return (await fetch('/api/project?video=' + encodeURIComponent(decodeURIComponent(opt.value)))).json();
+  }, name);
+  const pick = name => page.evaluate(n => {
+    const sel = document.getElementById('videoSelect');
+    sel.value = [...sel.options].find(o => o.textContent.startsWith(n + ' (')).value;
+    sel.dispatchEvent(new Event('change'));
+    sel.blur();
+  }, name);
+  const nudgeIn = () => page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: '.', bubbles: true })));
+  await page.click('#refreshVideos');
+  await page.waitForTimeout(300);
+  const inMs0 = (await projectOf('Test Game vs Skyhawks.mp4')).clips[0].inMs;
+  await nudgeIn();
+  await page.reload();                                             // well inside 700 ms
+  await page.waitForSelector('#videoSelect option:nth-child(3)', { state: 'attached' });
+  const inMs1 = (await projectOf('Test Game vs Skyhawks.mp4')).clips[0].inMs;
+  if (!(inMs1 > inMs0)) throw new Error(`edit lost on reload: inMs ${inMs0} → ${inMs1}`);
+  await pick('Test Game vs Skyhawks.mp4');
+  await page.waitForSelector('.clip', { timeout: 10000 });
+  await nudgeIn();
+  await pick('Test Game B.mp4');                                   // switch right after the edit
+  await page.waitForTimeout(1500);
+  const b = await projectOf('Test Game B.mp4'), a = await projectOf('Test Game vs Skyhawks.mp4');
+  if (b.clips.length) throw new Error('switching games wrote the old clips into Test Game B');
+  if (!(a.clips[0].inMs > inMs1)) throw new Error('edit lost when switching games');
+  console.log(`quick edits kept: reload ${inMs0}→${inMs1} ms, switch →${a.clips[0].inMs} ms, other game untouched`);
+  fs.rmSync(gameB, { force: true });
+  for (const f of ['Test Game B.json', 'Test Game B.json.bak']) fs.rmSync(path.join(__dirname, 'projects', f), { force: true });
 
   await page.screenshot({ path: '_ui.png' });
   fs.rmSync(path.join(__dirname, 'clips', '_test'), { recursive: true, force: true }); // tidy test exports
